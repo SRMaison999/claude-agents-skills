@@ -8,10 +8,17 @@ Architecture centralisée avec sessions :
 - reports/session-{timestamp}/2-FIXES/       → Corrections appliquées + backup
 - reports/session-{timestamp}/3-DOCUMENTATION/ → Mises à jour README
 
-NOUVEAUTÉ : Système de consensus multi-agents
-- Seules les issues validées par au moins 2 agents sont appliquées
-- Protection contre les faux positifs
-- consensus-issues.json généré automatiquement
+NOUVEAUTÉ : Système de Double Validation Indépendante
+Phase 1: DÉTECTION
+  → 4 agents d'analyse détectent les problèmes et proposent des corrections
+
+Phase 2: VALIDATION (NOUVEAU)
+  → 2 validateurs indépendants évaluent chaque correction proposée
+  → Pour chaque correction : Est-ce une vraie erreur ? La solution est-elle bonne ?
+
+Phase 3: CONSENSUS DE VALIDATION
+  → Seules les corrections approuvées par LES DEUX validateurs sont appliquées
+  → Protection maximale contre les faux positifs
 
 Usage:
     python agent_coordinator_v3.py /path/to/project
@@ -641,11 +648,135 @@ class AgentCoordinatorV3:
         print(f"{'─' * 80}\n")
         print(f"💡 Rappel : Ce sont des SUGGESTIONS, pas des bugs bloquants.\n")
 
-    async def run_code_fixer(self) -> bool:
-        """Phase 2 : Application des corrections"""
+    async def run_validation_phase(self) -> bool:
+        """Phase 2 : Validation indépendante par 2 validateurs"""
 
         print(f"\n{'=' * 80}")
-        print(f"🔧 PHASE 2 : CORRECTIONS")
+        print(f"🔍 PHASE 2 : VALIDATION INDÉPENDANTE")
+        print(f"{'=' * 80}\n")
+
+        validator_script = (Path(__file__).parent.parent / "correction-validator" / "correction_validator_v1.py").resolve()
+
+        if not validator_script.exists():
+            print(f"⚠️  Correction Validator introuvable : {validator_script}")
+            print(f"   → Skip validation phase\n")
+            return False
+
+        try:
+            python_cmd = "py" if platform.system() == "Windows" else "python3"
+
+            # Lancer les 2 validateurs EN PARALLÈLE
+            print(f"⏳ Lancement de 2 validateurs indépendants...\n")
+
+            validator1_cmd = [
+                python_cmd,
+                str(validator_script),
+                str(self.project_path),
+                "--session", str(self.session_summary.session_path),
+                "--validator-id", "1"
+            ]
+
+            validator2_cmd = [
+                python_cmd,
+                str(validator_script),
+                str(self.project_path),
+                "--session", str(self.session_summary.session_path),
+                "--validator-id", "2"
+            ]
+
+            # Lancer en parallèle
+            process1 = await asyncio.create_subprocess_exec(
+                *validator1_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            process2 = await asyncio.create_subprocess_exec(
+                *validator2_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            # Attendre les deux
+            stdout1, stderr1 = await process1.communicate()
+            stdout2, stderr2 = await process2.communicate()
+
+            if process1.returncode == 0 and process2.returncode == 0:
+                print(f"✅ Les 2 validateurs ont terminé avec succès\n")
+                return True
+            else:
+                print(f"⚠️  Un ou plusieurs validateurs ont échoué\n")
+                if process1.returncode != 0:
+                    print(f"   Validateur 1 : {stderr1.decode('utf-8', errors='replace')[:200]}")
+                if process2.returncode != 0:
+                    print(f"   Validateur 2 : {stderr2.decode('utf-8', errors='replace')[:200]}")
+                return False
+
+        except Exception as e:
+            print(f"❌ Erreur lors du lancement des validateurs : {e}")
+            return False
+
+    async def run_validation_consensus(self) -> bool:
+        """Phase 3 : Consensus entre les 2 validateurs"""
+
+        print(f"\n{'=' * 80}")
+        print(f"🤝 PHASE 3 : CONSENSUS DE VALIDATION")
+        print(f"{'=' * 80}\n")
+
+        consensus_script = (Path(__file__).parent.parent / "correction-validator" / "validation_consensus.py").resolve()
+
+        if not consensus_script.exists():
+            print(f"❌ Validation Consensus introuvable : {consensus_script}")
+            return False
+
+        try:
+            python_cmd = "py" if platform.system() == "Windows" else "python3"
+
+            cmd = [
+                python_cmd,
+                str(consensus_script),
+                str(self.session_summary.session_path)
+            ]
+
+            print(f"⏳ Comparaison des 2 validations...\n")
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await process.communicate()
+
+            # Afficher la sortie du consensus
+            print(stdout.decode('utf-8', errors='replace'))
+
+            if process.returncode == 0:
+                print(f"✅ Consensus de validation terminé\n")
+
+                # Lire le nombre de corrections validées
+                consensus_file = self.session_summary.session_path / "1-ANALYSIS" / "consensus-validated-corrections.json"
+                if consensus_file.exists():
+                    with open(consensus_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        stats = data.get("statistics", {})
+                        self.session_summary.auto_fixable_count = stats.get("auto_fixable", 0)
+
+                return True
+            else:
+                print(f"❌ Consensus a échoué\n")
+                print(stderr.decode('utf-8', errors='replace'))
+                return False
+
+        except Exception as e:
+            print(f"❌ Erreur lors du consensus : {e}")
+            return False
+
+    async def run_code_fixer(self) -> bool:
+        """Phase 4 : Application des corrections"""
+
+        print(f"\n{'=' * 80}")
+        print(f"🔧 PHASE 4 : CORRECTIONS")
         print(f"{'=' * 80}\n")
 
         code_fixer_script = (Path(__file__).parent.parent / "code-fixer" / "code_fixer_v3.py").resolve()
@@ -858,9 +989,6 @@ class AgentCoordinatorV3:
         # Compiler les résultats
         self.compile_results(agent_results)
 
-        # Analyser le consensus multi-agents
-        self.analyze_consensus()
-
         # Présenter le résumé
         self.present_analysis_summary()
 
@@ -881,10 +1009,27 @@ class AgentCoordinatorV3:
                 else:
                     print("Choix invalide. [d] détails, [c] continuer, [q] quitter")
 
-        # Si aucune correction auto-fixable, ne pas lancer Code Fixer
+        # Phase 2 : Validation indépendante par 2 validateurs
+        validation_success = await self.run_validation_phase()
+
+        if not validation_success:
+            print(f"\n⚠️  Validation phase skipped (validators not found)")
+            print(f"   → Continuing without validation\n")
+            # On continue sans validation
+        else:
+            # Phase 3 : Consensus de validation
+            consensus_success = await self.run_validation_consensus()
+
+            if not consensus_success:
+                print(f"\n⚠️  Consensus de validation échoué")
+                print(f"   → Aucune correction ne sera appliquée\n")
+                self.present_final_summary()
+                return
+
+        # Vérifier s'il y a des corrections à appliquer
         if self.session_summary.auto_fixable_count == 0:
-            print(f"\n⚠️  Aucune correction automatique disponible.")
-            print(f"   Les issues nécessitent une intervention manuelle.\n")
+            print(f"\n⚠️  Aucune correction validée par consensus.")
+            print(f"   Les 2 validateurs n'ont approuvé aucune correction.\n")
             self.present_final_summary()
             return
 
@@ -892,6 +1037,7 @@ class AgentCoordinatorV3:
         if not self.auto_mode:
             print(f"\n{'─' * 80}")
             print(f"💬 Lancer Code Fixer pour appliquer {self.session_summary.auto_fixable_count} corrections ?")
+            print(f"   (Validées par les 2 validateurs indépendants)")
             print(f"   [o] OUI")
             print(f"   [n] NON")
             print(f"{'─' * 80}\n")
@@ -902,7 +1048,7 @@ class AgentCoordinatorV3:
                 self.present_final_summary()
                 return
 
-        # Phase 2 : Corrections
+        # Phase 4 : Corrections
         code_fixer_success = await self.run_code_fixer()
 
         if not code_fixer_success:
@@ -910,7 +1056,7 @@ class AgentCoordinatorV3:
             self.present_final_summary()
             return
 
-        # Phase 3 : Documentation
+        # Phase 5 : Documentation
         await self.run_readme_editor()
 
         # Résumé final

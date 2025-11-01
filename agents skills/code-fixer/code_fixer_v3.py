@@ -77,39 +77,60 @@ class CodeFixerV3:
             return
 
         # Vérifier si un fichier de consensus existe (priorité absolue)
-        consensus_file = analysis_dir / "consensus-issues.json"
+        # Priorité 1 : Double validation indépendante (nouveau système)
+        validation_consensus_file = analysis_dir / "consensus-validated-corrections.json"
+        # Priorité 2 : Ancien système (file validation)
+        old_consensus_file = analysis_dir / "consensus-issues.json"
 
-        if consensus_file.exists():
-            print(f"🤝 Consensus multi-agents détecté\n")
-            print(f"📄 Chargement de consensus-issues.json...\n")
+        consensus_file = None
+        consensus_type = None
+
+        if validation_consensus_file.exists():
+            consensus_file = validation_consensus_file
+            consensus_type = "dual_validation"
+        elif old_consensus_file.exists():
+            consensus_file = old_consensus_file
+            consensus_type = "file_validation"
+
+        if consensus_file:
+            if consensus_type == "dual_validation":
+                print(f"🤝🤝 Double Validation Indépendante détectée\n")
+                print(f"📄 Chargement de consensus-validated-corrections.json...\n")
+            else:
+                print(f"🤝 Consensus multi-agents détecté\n")
+                print(f"📄 Chargement de consensus-issues.json...\n")
 
             try:
                 with open(consensus_file, 'r', encoding='utf-8') as f:
                     consensus_data = json.load(f)
 
-                if consensus_data.get("consensus_enabled", False):
+                if consensus_data.get("consensus_enabled", False) or consensus_type == "dual_validation":
                     stats = consensus_data.get("statistics", {})
-                    version = consensus_data.get("consensus_version", "V1")
-                    strategy = consensus_data.get("consensus_strategy", "unknown")
 
-                    print(f"✅ Consensus {version} - {strategy}")
-                    print(f"   Fichiers validés : {stats.get('validated_files', 0)}")
-                    print(f"   Issues validées  : {stats.get('total_validated_issues', stats.get('total_consensus', 0))}")
+                    if consensus_type == "dual_validation":
+                        print(f"✅ Corrections validées par les 2 validateurs indépendants")
+                        print(f"   Approuvées    : {stats.get('both_approved', stats.get('auto_fixable', 0))}")
+                        print(f"   Désaccord     : {stats.get('disagreement', 0)}")
+                    else:
+                        version = consensus_data.get("consensus_version", "V1")
+                        strategy = consensus_data.get("consensus_strategy", "unknown")
+                        print(f"✅ Consensus {version} - {strategy}")
+                        print(f"   Fichiers validés : {stats.get('validated_files', 0)}")
+                        print(f"   Issues validées  : {stats.get('total_validated_issues', stats.get('total_consensus', 0))}")
+
                     print(f"   Auto-fixable     : {stats.get('auto_fixable', 0)}")
                     print()
 
                     # Charger les issues de consensus
                     for issue in consensus_data.get("issues", []):
-                        if issue.get("auto_fixable", False):
-                            # V2 : agent est directement dans l'issue
-                            # V1 : agent dans agreed_by
-                            agent_name = issue.get("agent", "consensus")
-                            if not agent_name or agent_name == "consensus":
-                                agreed_by = issue.get("agreed_by", [])
-                                agent_name = agreed_by[0] if agreed_by else "consensus"
+                        if issue.get("auto_fixable", False) or consensus_type == "dual_validation":
+                            # Déterminer le label de l'agent
+                            if consensus_type == "dual_validation":
+                                consensus_label = "dual-validated"
+                            else:
+                                consensus_label = "consensus-validated"
 
-                            # Indicateur de consensus pour V2
-                            consensus_label = "consensus-validated"
+                            agent_name = issue.get("agent", consensus_label)
 
                             fix = Fix(
                                 agent=consensus_label,
@@ -124,7 +145,10 @@ class CodeFixerV3:
                             )
                             self.fixes.append(fix)
 
-                    print(f"✅ {len(self.fixes)} corrections automatiques (consensus) chargées\n")
+                    if consensus_type == "dual_validation":
+                        print(f"✅ {len(self.fixes)} corrections (double validation) chargées\n")
+                    else:
+                        print(f"✅ {len(self.fixes)} corrections (consensus) chargées\n")
                     return  # Ne pas charger les autres rapports
 
             except Exception as e:
