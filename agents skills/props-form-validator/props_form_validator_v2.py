@@ -703,6 +703,12 @@ Confiance ≥90% - Peut être appliqué automatiquement
 def main():
     """Point d'entrée principal"""
     import sys
+    import io
+
+    # Forcer UTF-8 pour la console Windows (support des emojis)
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
     if len(sys.argv) > 1:
         project_path = sys.argv[1]
