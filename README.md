@@ -16,8 +16,6 @@ Collection d'agents d'analyse et de maintenance de code avec apprentissage conti
 - Apprend tes patterns préférés
 - Corrige automatiquement après apprentissage
 
-[📁 Voir le dossier](./button-validator-v2-learning/)
-
 ---
 
 ### 📝 Props & Form Validator V2
@@ -31,8 +29,6 @@ Collection d'agents d'analyse et de maintenance de code avec apprentissage conti
 - Formulaires (labels, validation, messages d'erreur)
 - **Détection stricte emojis** (priorité absolue)
 - Cohérence visuelle globale
-
-[📁 Voir le dossier](./props-form-validator-v2/)
 
 ---
 
@@ -50,8 +46,6 @@ Collection d'agents d'analyse et de maintenance de code avec apprentissage conti
 
 **Sécurité** : Ne touche JAMAIS aux exports, routes ou configs
 
-[📁 Voir le dossier](./dead-code-cleaner-v2/)
-
 ---
 
 ### 🔧 Code Fixer V2
@@ -66,8 +60,6 @@ Collection d'agents d'analyse et de maintenance de code avec apprentissage conti
 - Rollback automatique si erreur
 
 **Sécurité** : Backup avant modifications, validation stricte
-
-[📁 Voir le dossier](./code-fixer-v2/)
 
 ---
 
@@ -311,8 +303,6 @@ Créé pour analyse et maintenance automatisée de projets web.
 - États visuels (hover, focus, disabled, active)
 - Accessibilité cohérente entre composants
 
-[📁 Voir le dossier](./component-consistency-checker-v2/)
-
 ---
 
 ### 🎼 Agent Coordinator V2
@@ -330,8 +320,6 @@ Créé pour analyse et maintenance automatisée de projets web.
 
 **Workflow** : Analyse → Compilation → Priorisation → Validation → Exécution → Vérification
 
-[📁 Voir le dossier](./agent-coordinator-v2/)
-
 ---
 
 ### 📝 README Editor V2
@@ -347,5 +335,4 @@ Créé pour analyse et maintenance automatisée de projets web.
 - Documentation des composants individuels
 - Sections API, Tests, Scripts auto-générées
 
-[📁 Voir le dossier](./readme-editor-v2/)
 
