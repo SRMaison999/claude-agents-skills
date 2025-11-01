@@ -19,6 +19,17 @@ from datetime import datetime
 from collections import defaultdict
 import subprocess
 
+def read_file_content_with_fallback_encoding(file_path):
+    """Lit le contenu complet d'un fichier en essayant plusieurs encodages"""
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    # Si tous échouent, retourner chaîne vide
+    return ""
+
 @dataclass
 class Intent:
     """Intention détectée de l'utilisateur"""
@@ -466,6 +477,127 @@ class AgentCoordinator:
         print()
         return results
     
+    def parse_agent_report(self, agent_name: str) -> Dict[str, int]:
+        """Parse le dernier rapport d'un agent pour extraire les statistiques"""
+
+        # Mapper les noms d'agents vers leurs dossiers
+        agent_folders = {
+            "button-validator": "button-validator",
+            "props-form-validator": "props-form-validator",
+            "dead-code-cleaner": "dead-code-cleaner",
+            "consistency-checker": "component-consistency-checker"
+        }
+
+        folder = agent_folders.get(agent_name)
+        if not folder:
+            return {}
+
+        # Chercher le dernier rapport
+        report_dir = Path(__file__).parent.parent / folder / "reports"
+        if not report_dir.exists():
+            return {}
+
+        # Trouver le rapport le plus récent
+        reports = list(report_dir.glob("*.md"))
+        if not reports:
+            return {}
+
+        latest_report = max(reports, key=lambda p: p.stat().st_mtime)
+
+        # Parser le rapport
+        try:
+            content = read_file_content_with_fallback_encoding(latest_report)
+            if not content:
+                return {}
+
+            stats = {
+                "critical": 0,
+                "important": 0,
+                "minor": 0,
+                "auto_fixable": 0,
+                "total": 0
+            }
+
+            # Patterns de parsing adaptés à chaque agent
+            import re
+
+            # Parsing spécifique selon l'agent
+            if agent_name == "button-validator":
+                # Format: "❌ **Problèmes critiques** : 510"
+                critical = re.search(r'\*\*Problèmes critiques\*\*\s*[:：]\s*(\d+)', content)
+                if critical:
+                    stats["critical"] = int(critical.group(1))
+
+                important = re.search(r'\*\*Problèmes importants\*\*\s*[:：]\s*(\d+)', content)
+                if important:
+                    stats["important"] = int(important.group(1))
+
+                minor = re.search(r'\*\*Améliorations suggérées\*\*\s*[:：]\s*(\d+)', content)
+                if minor:
+                    stats["minor"] = int(minor.group(1))
+
+                # Auto-fix: "✅ Auto-correction (confiance ≥90%) : 0"
+                auto_fix = re.search(r'Auto-correction\s*\([^)]+\)\s*[:：]\s*(\d+)', content)
+                if auto_fix:
+                    stats["auto_fixable"] = int(auto_fix.group(1))
+
+                stats["total"] = stats["critical"] + stats["important"] + stats["minor"]
+
+            elif agent_name == "props-form-validator":
+                # Format: "**Issues totales** : 1324"
+                total = re.search(r'\*\*Issues totales\*\*\s*[:：]\s*(\d+)', content)
+                if total:
+                    stats["total"] = int(total.group(1))
+
+                # Format: "- ❌ **CRITIQUES** : 1159"
+                critical = re.search(r'\*\*CRITIQUES\*\*\s*[:：]\s*(\d+)', content)
+                if critical:
+                    stats["critical"] = int(critical.group(1))
+
+                important = re.search(r'\*\*IMPORTANTES\*\*\s*[:：]\s*(\d+)', content)
+                if important:
+                    stats["important"] = int(important.group(1))
+
+                minor = re.search(r'\*\*MINEURES\*\*\s*[:：]\s*(\d+)', content)
+                if minor:
+                    stats["minor"] = int(minor.group(1))
+
+                # Format: "### ✅ Corrections automatiques (1155 issues)"
+                auto_fix = re.search(r'Corrections automatiques\s*\((\d+)\s+issues?\)', content)
+                if auto_fix:
+                    stats["auto_fixable"] = int(auto_fix.group(1))
+
+            elif agent_name == "dead-code-cleaner":
+                # Format: "**Issues totales** : 1545"
+                total = re.search(r'\*\*Issues totales\*\*\s*[:：]\s*(\d+)', content)
+                if total:
+                    stats["total"] = int(total.group(1))
+
+                # Format: "### ✅ Suppressions automatiques (1406 issues)"
+                auto_fix = re.search(r'Suppressions automatiques\s*\((\d+)\s+issues?\)', content)
+                if auto_fix:
+                    stats["auto_fixable"] = int(auto_fix.group(1))
+
+                # Dead code n'a pas de séparation par sévérité, tout est considéré "minor"
+                stats["minor"] = stats["total"]
+
+            elif agent_name == "consistency-checker":
+                # Format: "**Incohérences détectées** : 2189"
+                total = re.search(r'\*\*Incohérences détectées\*\*\s*[:：]\s*(\d+)', content)
+                if total:
+                    stats["total"] = int(total.group(1))
+
+                # Consistency n'a pas de séparation par sévérité claire, considérer comme "important"
+                stats["important"] = stats["total"]
+
+            return stats
+
+        except Exception as e:
+            print(f"⚠️  Erreur parsing rapport {agent_name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
     def compile_results(self, results: Dict[str, Any]) -> AnalysisSummary:
         """Compile les résultats de tous les agents"""
 
@@ -480,14 +612,13 @@ class AgentCoordinator:
 
             if status == "success":
                 successful_agents.append(agent_name)
-                # Simuler des issues détectées
-                # Dans la vraie implémentation, parser les rapports JSON des agents
-                if agent_name == "button-validator":
-                    summary.total_files += 15
-                    summary.critical_count += 2
-                    summary.important_count += 3
-                    summary.minor_count += 5
-                    summary.auto_fixable_count += 4
+                # Parser le vrai rapport de l'agent
+                stats = self.parse_agent_report(agent_name)
+                if stats:
+                    summary.critical_count += stats.get("critical", 0)
+                    summary.important_count += stats.get("important", 0)
+                    summary.minor_count += stats.get("minor", 0)
+                    summary.auto_fixable_count += stats.get("auto_fixable", 0)
             else:
                 # Agent a échoué
                 failed_agents.append({
