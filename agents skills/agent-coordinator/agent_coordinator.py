@@ -368,15 +368,16 @@ class AgentCoordinator:
                 "message": f"Agent {agent_task.name} pas encore implémenté"
             }
         
-        agent_path = Path(__file__).parent / agent_info["path"]
-        
+        # Résoudre le chemin absolu de l'agent (important pour Windows avec espaces)
+        agent_path = (Path(__file__).parent / agent_info["path"]).resolve()
+
         if not agent_path.exists():
             return {
                 "agent": agent_task.name,
                 "status": "not_found",
                 "message": f"Agent non trouvé : {agent_path}"
             }
-        
+
         try:
             # Lancer l'agent avec le bon interpréteur Python (Windows vs Linux)
             import platform
@@ -503,13 +504,17 @@ class AgentCoordinator:
             for failed in failed_agents:
                 print(f"\n❌ {failed['name']} ({failed['status']})")
                 if failed['message']:
-                    print(f"   Message : {failed['message'][:200]}")
-                if failed['stderr']:
-                    # Afficher les premières lignes de stderr
-                    stderr_lines = failed['stderr'].split('\n')[:5]
-                    for line in stderr_lines:
+                    # Afficher le message complet (pas de troncature)
+                    print(f"   Message :")
+                    for line in failed['message'].split('\n'):
                         if line.strip():
-                            print(f"   {line[:100]}")
+                            print(f"      {line}")
+                if failed['stderr']:
+                    # Afficher stderr complet
+                    print(f"   Stderr :")
+                    for line in failed['stderr'].split('\n'):
+                        if line.strip():
+                            print(f"      {line}")
             print(f"\n{'─' * 70}\n")
 
         summary.total_issues = summary.critical_count + summary.important_count + summary.minor_count
