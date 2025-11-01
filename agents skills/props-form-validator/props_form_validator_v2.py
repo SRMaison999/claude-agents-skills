@@ -36,6 +36,20 @@ def read_file_content_with_fallback_encoding(file_path):
             continue
     # Si tous échouent, retourner chaîne vide
     return ""
+
+def read_json_with_fallback_encoding(file_path):
+    """Lit un fichier JSON en essayant plusieurs encodages"""
+    import json
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return json.load(f)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+        except json.JSONDecodeError:
+            return None
+    return None
+
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -146,8 +160,9 @@ class PropsFormValidator:
             return stack
 
         try:
-            with open(package_json_path, 'r', encoding='utf-8') as f:
-                package_data = json.load(f)
+            package_data = read_json_with_fallback_encoding(package_json_path)
+            if not package_data:
+                return stack
 
             deps = {**package_data.get('dependencies', {}), **package_data.get('devDependencies', {})}
 
@@ -189,8 +204,9 @@ class PropsFormValidator:
 
         if memory_file.exists():
             try:
-                with open(memory_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                memory = read_json_with_fallback_encoding(memory_file)
+                if memory:
+                    return memory
             except:
                 pass
 

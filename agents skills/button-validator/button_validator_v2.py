@@ -17,6 +17,18 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from collections import Counter
 
+def read_json_with_fallback_encoding(file_path):
+    """Lit un fichier JSON en essayant plusieurs encodages"""
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return json.load(f)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+        except json.JSONDecodeError:
+            return None
+    return None
+
 @dataclass
 class ButtonIssue:
     """Représente un problème détecté sur un bouton"""
@@ -115,8 +127,10 @@ class ButtonValidatorLearning:
             return stack
         
         try:
-            with open(package_json_path, 'r', encoding='utf-8') as f:
-                pkg = json.load(f)
+            pkg = read_json_with_fallback_encoding(package_json_path)
+            if pkg is None:
+                print("⚠️  Erreur lecture package.json")
+                return stack
         except Exception as e:
             print(f"⚠️  Erreur lecture package.json : {e}")
             return stack
@@ -231,9 +245,9 @@ class ButtonValidatorLearning:
         
         if memory_file.exists():
             try:
-                with open(memory_file, 'r', encoding='utf-8') as f:
-                    memory = json.load(f)
-                return memory
+                memory = read_json_with_fallback_encoding(memory_file)
+                if memory:
+                    return memory
             except Exception as e:
                 print(f"⚠️  Erreur chargement mémoire : {e}")
         
