@@ -209,9 +209,9 @@ class AgentCoordinator:
             intent.confidence = 0.95
         
         elif any(word in message_lower for word in analyze_words):
-            # Analyse générale, déterminer quoi analyser
+            # Analyse générale - lancer tous les agents d'analyse
             intent.action = "general_analysis"
-            intent.agents = ["button-validator", "props-form-validator"]
+            intent.agents = ["button-validator", "props-form-validator", "dead-code-cleaner", "consistency-checker"]
             intent.confidence = 0.7
         
         # Détecter le scope
@@ -315,10 +315,12 @@ class AgentCoordinator:
             plan.description = "Analyse générale"
             plan.agents = [
                 AgentTask("button-validator", priority=1, estimated_time=90),
-                AgentTask("props-form-validator", priority=1, estimated_time=120)
+                AgentTask("props-form-validator", priority=1, estimated_time=120),
+                AgentTask("dead-code-cleaner", priority=1, estimated_time=120),
+                AgentTask("consistency-checker", priority=2, estimated_time=180)
             ]
             plan.parallel = True
-            plan.estimated_time = 120
+            plan.estimated_time = 180  # Max des temps en parallèle
             plan.will_modify_code = False
         
         else:
