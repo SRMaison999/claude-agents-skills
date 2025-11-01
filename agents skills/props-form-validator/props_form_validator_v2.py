@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Props & Form Validator V2 - Learning Edition
 Agent intelligent d'analyse des props, modales, formulaires avec détection stricte des emojis
@@ -13,6 +14,28 @@ import re
 import json
 import hashlib
 from pathlib import Path
+
+def read_file_with_fallback_encoding(file_path):
+    """Lit un fichier en essayant plusieurs encodages (Windows/Linux compatibility)"""
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.readlines()
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    # Si tous échouent, retourner une liste vide
+    return []
+
+def read_file_content_with_fallback_encoding(file_path):
+    """Lit le contenu complet d'un fichier en essayant plusieurs encodages"""
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    # Si tous échouent, retourner chaîne vide
+    return ""
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -213,8 +236,9 @@ class PropsFormValidator:
         emoji_issues = []
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
+            lines = read_file_with_fallback_encoding(file_path)
+            if not lines:
+                return emoji_issues
 
             for line_num, line in enumerate(lines, 1):
                 # Chercher les emojis dans le contenu visible (JSX/HTML)
@@ -458,8 +482,9 @@ class PropsFormValidator:
     def analyze_file(self, file_path: Path):
         """Analyse complète d'un fichier"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            content = read_file_content_with_fallback_encoding(file_path)
+            if not content:
+                return
         except Exception as e:
             return
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Dead Code Cleaner V2 - Learning Edition
 Agent intelligent de nettoyage de code mort avec apprentissage continu
@@ -13,6 +14,17 @@ import re
 import json
 import hashlib
 from pathlib import Path
+
+def read_file_content_with_fallback_encoding(file_path):
+    """Lit le contenu complet d'un fichier en essayant plusieurs encodages"""
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    # Si tous échouent, retourner chaîne vide
+    return ""
 from typing import List, Dict, Any, Optional, Set, Tuple
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -315,8 +327,12 @@ class DeadCodeCleaner:
     def analyze_file(self, file_path: Path) -> FileAnalysis:
         """Analyse complète d'un fichier"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            content = read_file_content_with_fallback_encoding(file_path)
+            if not content:
+                return FileAnalysis(
+                    file_path=str(file_path.relative_to(self.project_path)),
+                    total_lines=0
+                )
         except Exception as e:
             return FileAnalysis(
                 file_path=str(file_path.relative_to(self.project_path)),

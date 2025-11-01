@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Button Validator V2 - Learning Edition
 Agent intelligent avec auto-détection et apprentissage continu
@@ -340,13 +341,25 @@ class ButtonValidatorLearning:
     
     def scan_file(self, file_path: Path) -> List[ButtonInfo]:
         """Scanne un fichier pour détecter les boutons"""
-        
+
         buttons = []
-        
+
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                lines = content.split('\n')
+            # Essayer plusieurs encodages pour compatibilité Windows/Linux
+            content = None
+            for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                try:
+                    with open(file_path, 'r', encoding=encoding) as f:
+                        content = f.read()
+                        break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+
+            if content is None:
+                # Si tous les encodages échouent, ignorer le fichier
+                return buttons
+
+            lines = content.split('\n')
             
             # Scanner avec tous les patterns
             for pattern_type, pattern_list in self.button_patterns.items():

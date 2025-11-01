@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Component Consistency Checker V2 - Learning Edition
 Agent intelligent de vérification de la cohérence visuelle et structurelle des composants
@@ -11,6 +12,17 @@ import re
 import json
 import hashlib
 from pathlib import Path
+
+def read_file_content_with_fallback_encoding(file_path):
+    """Lit le contenu complet d'un fichier en essayant plusieurs encodages"""
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    # Si tous échouent, retourner chaîne vide
+    return ""
 from typing import List, Dict, Any, Optional, Set, Tuple
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
@@ -329,8 +341,9 @@ class ConsistencyChecker:
     def detect_deviations(self, group: ComponentGroup, file_path: Path, pattern: VisualPattern):
         """Détecte les déviations par rapport au pattern standard"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            content = read_file_content_with_fallback_encoding(file_path)
+            if not content:
+                return
         except:
             return
 
@@ -428,8 +441,9 @@ class ConsistencyChecker:
 
         for file_path in files:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                content = read_file_content_with_fallback_encoding(file_path)
+                if not content:
+                    continue
 
                 classes = self.extract_tailwind_classes(content)
                 pattern = self.categorize_tailwind_classes(classes)
