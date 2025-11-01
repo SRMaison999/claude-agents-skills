@@ -449,27 +449,56 @@ class AgentCoordinator:
     
     def compile_results(self, results: Dict[str, Any]) -> AnalysisSummary:
         """Compile les résultats de tous les agents"""
-        
+
         summary = AnalysisSummary()
-        
-        # Pour l'instant, simuler des résultats
-        # Dans la vraie implémentation, parser les rapports JSON des agents
-        
+
+        # Vérifier les erreurs des agents
+        failed_agents = []
+        successful_agents = []
+
         for agent_name, result in results.items():
-            if result.get("status") == "success":
+            status = result.get("status")
+
+            if status == "success":
+                successful_agents.append(agent_name)
                 # Simuler des issues détectées
+                # Dans la vraie implémentation, parser les rapports JSON des agents
                 if agent_name == "button-validator":
                     summary.total_files += 15
                     summary.critical_count += 2
                     summary.important_count += 3
                     summary.minor_count += 5
                     summary.auto_fixable_count += 4
-        
+            else:
+                # Agent a échoué
+                failed_agents.append({
+                    "name": agent_name,
+                    "status": status,
+                    "message": result.get("message", "Erreur inconnue"),
+                    "stderr": result.get("stderr", "")
+                })
+
+        # Afficher les erreurs si présentes
+        if failed_agents:
+            print(f"\n⚠️  ATTENTION : {len(failed_agents)} agent(s) ont échoué :")
+            print(f"{'─' * 70}")
+            for failed in failed_agents:
+                print(f"\n❌ {failed['name']} ({failed['status']})")
+                if failed['message']:
+                    print(f"   Message : {failed['message'][:200]}")
+                if failed['stderr']:
+                    # Afficher les premières lignes de stderr
+                    stderr_lines = failed['stderr'].split('\n')[:5]
+                    for line in stderr_lines:
+                        if line.strip():
+                            print(f"   {line[:100]}")
+            print(f"\n{'─' * 70}\n")
+
         summary.total_issues = summary.critical_count + summary.important_count + summary.minor_count
-        
+
         if summary.total_issues > 0:
             summary.avg_confidence = 85.0
-        
+
         return summary
     
     def present_summary(self, summary: AnalysisSummary):
@@ -540,7 +569,13 @@ class AgentCoordinator:
         print(f"  • {summary.important_count} importantes")
         print(f"  • {summary.minor_count} mineures\n")
 
-        # TOUJOURS demander confirmation explicite
+        # En mode auto : afficher seulement, NE PAS lancer sans intervention utilisateur
+        if self.auto_mode:
+            print(f"🤖 Mode automatique : Analyse terminée.")
+            print(f"   Pour appliquer les corrections, relancez en mode conversationnel.\n")
+            return False
+
+        # TOUJOURS demander confirmation explicite en mode conversationnel
         print(f"Options :")
         print(f"  [o] OUI - Lancer Code Fixer pour appliquer les corrections")
         print(f"  [d] DÉTAILS - Voir plus de détails avant de décider")
