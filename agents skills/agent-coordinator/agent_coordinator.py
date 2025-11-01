@@ -378,9 +378,11 @@ class AgentCoordinator:
             }
         
         try:
-            # Lancer l'agent
-            cmd = ["python3", str(agent_path), str(self.project_path)]
-            
+            # Lancer l'agent avec le bon interpréteur Python (Windows vs Linux)
+            import platform
+            python_cmd = "py" if platform.system() == "Windows" else "python3"
+            cmd = [python_cmd, str(agent_path), str(self.project_path)]
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
