@@ -513,59 +513,77 @@ class AgentCoordinator:
             print(f"   [4] Rien pour l'instant")
             print(f"{'─' * 70}\n")
 
-    async def analyze_confidence_and_propose_fixes(self, summary: AnalysisSummary) -> bool:
-        """Analyse la confiance et propose/demande validation pour lancer Code Fixer"""
+    async def ask_user_to_apply_fixes(self, summary: AnalysisSummary) -> bool:
+        """Demande TOUJOURS à l'utilisateur s'il veut appliquer les corrections
+
+        RÈGLE : Ne JAMAIS lancer Code Fixer sans accord explicite de l'utilisateur
+        """
 
         if summary.total_issues == 0:
             print("\n✅ Aucun problème détecté, rien à corriger !")
             return False
 
         print(f"\n{'=' * 70}")
-        print(f"🎯 ANALYSE DES CORRECTIONS POSSIBLES")
+        print(f"💬 VOULEZ-VOUS APPLIQUER CES CORRECTIONS ?")
         print(f"{'=' * 70}\n")
 
-        # Analyser la confiance
+        # Afficher le résumé avec la confiance
+        print(f"Confiance moyenne : {summary.avg_confidence:.0f}%")
         if summary.avg_confidence >= 90:
-            # CONFIANCE HAUTE - Proposition directe
-            print(f"✅ CONFIANCE HAUTE ({summary.avg_confidence:.0f}%) - Corrections sûres\n")
-            print(f"Corrections à appliquer :")
-            print(f"  • {summary.auto_fixable_count} corrections automatiques disponibles")
-            print(f"  • Confiance moyenne : {summary.avg_confidence:.0f}%\n")
-
-            # Proposer de lancer Code Fixer
-            response = input("Lancer Code Fixer pour appliquer ces corrections ? [o/N] : ")
-            return response.lower() in ['o', 'oui', 'y', 'yes']
-
+            print(f"✅ Niveau : HAUTE - Les corrections proposées sont sûres\n")
         else:
-            # CONFIANCE BASSE - Demander validation
-            print(f"⚠️  CONFIANCE BASSE ({summary.avg_confidence:.0f}%) - Validation requise\n")
-            print(f"Issues détectées :")
-            print(f"  • Critiques : {summary.critical_count}")
-            print(f"  • Importantes : {summary.important_count}")
-            print(f"  • Mineures : {summary.minor_count}\n")
+            print(f"⚠️  Niveau : MOYENNE/BASSE - Validation recommandée\n")
 
-            print(f"⚠️  Certaines corrections ont une confiance <90%")
-            print(f"   Je dois attendre votre validation avant de continuer.\n")
+        print(f"Résumé des corrections disponibles :")
+        print(f"  • {summary.auto_fixable_count} corrections automatiques")
+        print(f"  • {summary.critical_count} critiques")
+        print(f"  • {summary.important_count} importantes")
+        print(f"  • {summary.minor_count} mineures\n")
 
-            # Demander validation explicite
-            print("Souhaitez-vous :")
-            print("  [1] Voir le détail complet et valider manuellement")
-            print("  [2] Appliquer uniquement les corrections haute confiance (≥90%)")
-            print("  [3] Annuler")
+        # TOUJOURS demander confirmation explicite
+        print(f"Options :")
+        print(f"  [o] OUI - Lancer Code Fixer pour appliquer les corrections")
+        print(f"  [d] DÉTAILS - Voir plus de détails avant de décider")
+        print(f"  [n] NON - Ne rien appliquer pour l'instant\n")
 
-            response = input("\nVotre choix [1/2/3] : ")
+        response = input("Votre choix [o/d/N] : ").lower().strip()
 
-            if response == "1":
-                print("\n📋 Affichage du détail complet...")
-                # Ici on pourrait afficher plus de détails
-                response = input("\nAprès review, lancer Code Fixer ? [o/N] : ")
-                return response.lower() in ['o', 'oui', 'y', 'yes']
-            elif response == "2":
-                print(f"\n✅ OK, application des corrections haute confiance uniquement")
+        if response in ['o', 'oui', 'y', 'yes']:
+            print(f"\n✅ OK, je lance Code Fixer...\n")
+            return True
+        elif response in ['d', 'detail', 'détails', 'details']:
+            print(f"\n📋 DÉTAILS COMPLETS :")
+            print(f"{'─' * 70}")
+            # Afficher plus de détails
+            if summary.critical_issues:
+                print(f"\n❌ Issues CRITIQUES ({len(summary.critical_issues)}) :")
+                for issue in summary.critical_issues[:5]:
+                    print(f"  • {issue.file_path}:{issue.line_number} - {issue.description}")
+                if len(summary.critical_issues) > 5:
+                    print(f"  ... et {len(summary.critical_issues) - 5} autres")
+
+            if summary.important_issues:
+                print(f"\n⚠️  Issues IMPORTANTES ({len(summary.important_issues)}) :")
+                for issue in summary.important_issues[:5]:
+                    print(f"  • {issue.file_path}:{issue.line_number} - {issue.description}")
+                if len(summary.important_issues) > 5:
+                    print(f"  ... et {len(summary.important_issues) - 5} autres")
+
+            print(f"\n{'─' * 70}\n")
+
+            # Redemander après avoir montré les détails
+            response = input("Après avoir vu les détails, lancer Code Fixer ? [o/N] : ").lower().strip()
+            if response in ['o', 'oui', 'y', 'yes']:
+                print(f"\n✅ OK, je lance Code Fixer...\n")
                 return True
             else:
-                print("\n❌ Annulé")
+                print(f"\n❌ OK, aucune correction ne sera appliquée.")
+                print(f"   Les rapports sont disponibles dans ./reports/\n")
                 return False
+        else:
+            print(f"\n❌ OK, aucune correction ne sera appliquée.")
+            print(f"   Les rapports sont disponibles dans ./reports/\n")
+            return False
 
     async def launch_code_fixer(self) -> Dict[str, Any]:
         """Lance Code Fixer pour appliquer les corrections"""
@@ -728,8 +746,8 @@ class AgentCoordinator:
                 summary = self.compile_results(results)
                 self.present_summary(summary)
 
-                # NOUVEAU : Analyse confiance et proposition Code Fixer
-                should_fix = await self.analyze_confidence_and_propose_fixes(summary)
+                # NOUVEAU : Demande TOUJOURS à l'utilisateur avant de corriger
+                should_fix = await self.ask_user_to_apply_fixes(summary)
 
                 if should_fix:
                     # Lancer Code Fixer
@@ -773,8 +791,8 @@ class AgentCoordinator:
                 summary = self.compile_results(results)
                 self.present_summary(summary)
 
-                # NOUVEAU : Workflow intelligent automatique
-                should_fix = await self.analyze_confidence_and_propose_fixes(summary)
+                # NOUVEAU : Demande TOUJOURS à l'utilisateur avant de corriger
+                should_fix = await self.ask_user_to_apply_fixes(summary)
 
                 if should_fix:
                     # Lancer Code Fixer
