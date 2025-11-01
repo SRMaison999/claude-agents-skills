@@ -8,6 +8,11 @@ Architecture centralisée avec sessions :
 - reports/session-{timestamp}/2-FIXES/       → Corrections appliquées + backup
 - reports/session-{timestamp}/3-DOCUMENTATION/ → Mises à jour README
 
+NOUVEAUTÉ : Système de consensus multi-agents
+- Seules les issues validées par au moins 2 agents sont appliquées
+- Protection contre les faux positifs
+- consensus-issues.json généré automatiquement
+
 Usage:
     python agent_coordinator_v3.py /path/to/project
     python agent_coordinator_v3.py /path/to/project --auto
@@ -29,6 +34,9 @@ from collections import defaultdict
 
 # Import du convertisseur
 from report_converter import convert_report, save_json_report
+
+# Import du consensus analyzer
+from consensus_analyzer import ConsensusAnalyzer, ConsensusIssue
 
 # Forcer UTF-8 pour la console Windows (support des emojis)
 if sys.platform == 'win32':
@@ -85,6 +93,12 @@ class SessionSummary:
     all_issues: List[Issue] = field(default_factory=list)
     fixes_applied: int = 0
     readme_updated: bool = False
+
+    # Consensus data
+    consensus_enabled: bool = True
+    consensus_issues: List[ConsensusIssue] = field(default_factory=list)
+    consensus_count: int = 0
+    rejected_count: int = 0
 
 class AgentCoordinatorV3:
     """
@@ -363,6 +377,111 @@ class AgentCoordinatorV3:
             else:
                 self.session_summary.failed_agents += 1
 
+    def analyze_consensus(self):
+        """
+        Analyse le consensus multi-agents
+
+        Seules les issues validées par au moins 2 agents seront appliquées
+        """
+
+        print(f"\n{'=' * 80}")
+        print(f"🤝 ANALYSE DE CONSENSUS MULTI-AGENTS")
+        print(f"{'=' * 80}\n")
+
+        if self.session_summary.successful_agents < 2:
+            print(f"⚠️  Moins de 2 agents réussis, consensus désactivé")
+            print(f"   → Toutes les issues seront considérées\n")
+            self.session_summary.consensus_enabled = False
+            return
+
+        # Lancer l'analyse de consensus
+        analyzer = ConsensusAnalyzer(line_tolerance=2)
+        consensus_issues, rejected_issues = analyzer.find_consensus(
+            self.session_summary.all_issues,
+            min_agents=2
+        )
+
+        # Mettre à jour le résumé
+        self.session_summary.consensus_issues = consensus_issues
+        self.session_summary.consensus_count = len(consensus_issues)
+        self.session_summary.rejected_count = len(rejected_issues)
+
+        # Afficher le rapport
+        stats = analyzer.get_statistics()
+
+        print(f"✅ Issues validées par consensus : {stats['total_consensus']}")
+        if stats['consensus_2_agents'] > 0:
+            print(f"   • 2 agents d'accord : {stats['consensus_2_agents']}")
+        if stats['consensus_3_agents'] > 0:
+            print(f"   • 3 agents d'accord : {stats['consensus_3_agents']}")
+        if stats['consensus_4_plus'] > 0:
+            print(f"   • 4+ agents d'accord : {stats['consensus_4_plus']}")
+        print()
+
+        print(f"🤖 Corrections automatiques disponibles : {stats['auto_fixable']}")
+        print()
+
+        print(f"❌ Issues rejetées (1 seul agent) : {stats['total_rejected']}")
+        print(f"   → Pas assez de consensus pour appliquer")
+        print()
+
+        if stats['total_consensus'] > 0:
+            print(f"💡 Seules les {stats['total_consensus']} issues validées seront appliquées")
+            print(f"   (protection contre les faux positifs)")
+        else:
+            print(f"⚠️  Aucun consensus trouvé")
+            print(f"   Les agents ne sont pas d'accord sur les corrections")
+
+        print(f"{'=' * 80}")
+
+        # Sauvegarder le fichier consensus-issues.json
+        self.save_consensus_issues()
+
+        # Mettre à jour auto_fixable_count avec le consensus
+        self.session_summary.auto_fixable_count = stats['auto_fixable']
+
+    def save_consensus_issues(self):
+        """Sauvegarde les issues de consensus en JSON"""
+
+        if not self.session_summary.consensus_enabled:
+            return
+
+        consensus_file = self.session_summary.session_path / "1-ANALYSIS" / "consensus-issues.json"
+
+        # Convertir ConsensusIssue en dict pour JSON
+        consensus_data = {
+            "consensus_enabled": True,
+            "min_agents_required": 2,
+            "timestamp": datetime.now().isoformat(),
+            "statistics": {
+                "total_consensus": self.session_summary.consensus_count,
+                "rejected": self.session_summary.rejected_count,
+                "auto_fixable": sum(1 for i in self.session_summary.consensus_issues if i.auto_fixable)
+            },
+            "issues": [
+                {
+                    "file": issue.file_path,
+                    "line": issue.line_number,
+                    "type": issue.issue_type,
+                    "description": issue.description,
+                    "solution": issue.solution,
+                    "severity": issue.severity,
+                    "old_code": issue.old_code,
+                    "new_code": issue.new_code,
+                    "confidence": issue.confidence,
+                    "auto_fixable": issue.auto_fixable,
+                    "agreed_by": issue.agreed_by,
+                    "consensus_level": issue.consensus_level
+                }
+                for issue in self.session_summary.consensus_issues
+            ]
+        }
+
+        with open(consensus_file, 'w', encoding='utf-8') as f:
+            json.dump(consensus_data, f, indent=2, ensure_ascii=False)
+
+        print(f"\n💾 Consensus sauvegardé : consensus-issues.json\n")
+
     def present_analysis_summary(self):
         """Présente le résumé de l'analyse"""
 
@@ -417,6 +536,8 @@ class AgentCoordinatorV3:
         # Corrections automatiques
         if s.auto_fixable_count > 0:
             print(f"🤖 Corrections automatiques disponibles : {s.auto_fixable_count}")
+            if s.consensus_enabled:
+                print(f"   ✅ Validées par consensus multi-agents (min 2 agents)")
             print(f"   (principalement nettoyage : console.log, emojis, imports)")
             print()
 
@@ -666,6 +787,11 @@ class AgentCoordinatorV3:
             "project": str(self.session_summary.project_path),
             "start_time": self.session_summary.start_time,
             "end_time": self.session_summary.end_time,
+            "consensus": {
+                "enabled": self.session_summary.consensus_enabled,
+                "consensus_count": self.session_summary.consensus_count,
+                "rejected_count": self.session_summary.rejected_count
+            },
             "statistics": {
                 "total_agents": self.session_summary.total_agents,
                 "successful_agents": self.session_summary.successful_agents,
@@ -701,6 +827,9 @@ class AgentCoordinatorV3:
 
         # Compiler les résultats
         self.compile_results(agent_results)
+
+        # Analyser le consensus multi-agents
+        self.analyze_consensus()
 
         # Présenter le résumé
         self.present_analysis_summary()

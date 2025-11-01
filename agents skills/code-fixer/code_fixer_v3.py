@@ -11,6 +11,10 @@ SÉCURITÉ :
 - Rollback automatique si erreur
 - Mode --dry-run pour simulation
 
+CONSENSUS MULTI-AGENTS :
+- Priorité absolue au fichier consensus-issues.json
+- Si absent, fallback vers rapports individuels
+
 Usage:
     python code_fixer_v3.py /path/to/project --session /path/to/session
     python code_fixer_v3.py /path/to/project --session /path/to/session --dry-run
@@ -72,7 +76,51 @@ class CodeFixerV3:
             print(f"❌ Dossier d'analyse introuvable : {analysis_dir}")
             return
 
-        json_files = list(analysis_dir.glob("*.json"))
+        # Vérifier si un fichier de consensus existe (priorité absolue)
+        consensus_file = analysis_dir / "consensus-issues.json"
+
+        if consensus_file.exists():
+            print(f"🤝 Consensus multi-agents détecté\n")
+            print(f"📄 Chargement de consensus-issues.json...\n")
+
+            try:
+                with open(consensus_file, 'r', encoding='utf-8') as f:
+                    consensus_data = json.load(f)
+
+                if consensus_data.get("consensus_enabled", False):
+                    stats = consensus_data.get("statistics", {})
+                    print(f"✅ Issues validées par consensus : {stats.get('total_consensus', 0)}")
+                    print(f"   (minimum 2 agents d'accord)\n")
+
+                    # Charger les issues de consensus
+                    for issue in consensus_data.get("issues", []):
+                        if issue.get("auto_fixable", False):
+                            # Utiliser le premier agent comme nom (pour compatibilité)
+                            agreed_by = issue.get("agreed_by", [])
+                            agent_name = agreed_by[0] if agreed_by else "consensus"
+
+                            fix = Fix(
+                                agent=f"consensus-{issue.get('consensus_level', 2)}",
+                                file_path=issue.get("file", ""),
+                                line_number=issue.get("line", 0),
+                                fix_type=issue.get("type", ""),
+                                description=issue.get("description", ""),
+                                solution=issue.get("solution", ""),
+                                old_code=issue.get("old_code", ""),
+                                new_code=issue.get("new_code", ""),
+                                confidence=issue.get("confidence", 0.0)
+                            )
+                            self.fixes.append(fix)
+
+                    print(f"✅ {len(self.fixes)} corrections automatiques (consensus) chargées\n")
+                    return  # Ne pas charger les autres rapports
+
+            except Exception as e:
+                print(f"⚠️  Erreur lecture consensus-issues.json : {e}")
+                print(f"   → Fallback vers rapports individuels\n")
+
+        # Fallback : charger tous les rapports individuels (ancien comportement)
+        json_files = [f for f in analysis_dir.glob("*.json") if f.name != "consensus-issues.json"]
 
         print(f"📄 Chargement de {len(json_files)} rapports JSON...\n")
 
