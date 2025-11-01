@@ -117,24 +117,34 @@ class AgentCoordinator:
         # Agents disponibles
         self.available_agents = {
             "button-validator": {
-                "path": "../button-validator-v2-learning/button_validator_v2.py",
+                "path": "../button-validator/button_validator_v2.py",
                 "enabled": True,
                 "timeout": 300
             },
             "props-form-validator": {
-                "path": "../props-form-validator-v2/props_form_validator_v2.py",
-                "enabled": False,  # Pas encore codé
+                "path": "../props-form-validator/props_form_validator_v2.py",
+                "enabled": True,
                 "timeout": 300
             },
             "dead-code-cleaner": {
-                "path": "../dead-code-cleaner-v2/dead_code_cleaner_v2.py",
-                "enabled": False,  # Pas encore codé
+                "path": "../dead-code-cleaner/dead_code_cleaner_v2.py",
+                "enabled": True,
+                "timeout": 300
+            },
+            "code-fixer": {
+                "path": "../code-fixer/code_fixer_v2.py",
+                "enabled": True,
                 "timeout": 300
             },
             "consistency-checker": {
-                "path": "../component-consistency-checker-v2/consistency_checker_v2.py",
-                "enabled": False,  # Pas encore codé
+                "path": "../component-consistency-checker/consistency_checker_v2.py",
+                "enabled": True,
                 "timeout": 600
+            },
+            "readme-editor": {
+                "path": "../readme-editor/readme_editor_v2.py",
+                "enabled": True,
+                "timeout": 300
             }
         }
         
