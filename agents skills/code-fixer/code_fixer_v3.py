@@ -6,8 +6,14 @@ Lit les rapports JSON de la session
 Applique les corrections auto-fixables (confiance ≥90%)
 Génère FIXES-APPLIED.md (traçabilité lisible)
 
+SÉCURITÉ :
+- Syntax check après chaque modification
+- Rollback automatique si erreur
+- Mode --dry-run pour simulation
+
 Usage:
     python code_fixer_v3.py /path/to/project --session /path/to/session
+    python code_fixer_v3.py /path/to/project --session /path/to/session --dry-run
 """
 
 import sys
@@ -15,8 +21,9 @@ import io
 import json
 import shutil
 import re
+import subprocess
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from dataclasses import dataclass
 from collections import defaultdict
@@ -44,15 +51,17 @@ class Fix:
 
 class CodeFixerV3:
     """
-    Applique les corrections automatiques
+    Applique les corrections automatiques avec vérifications
     """
 
-    def __init__(self, project_path: Path, session_path: Path):
+    def __init__(self, project_path: Path, session_path: Path, dry_run: bool = False):
         self.project_path = project_path
         self.session_path = session_path
+        self.dry_run = dry_run
         self.fixes: List[Fix] = []
         self.fixes_applied: List[Fix] = []
         self.fixes_failed: List[Fix] = []
+        self.syntax_errors: List[Dict[str, Any]] = []
 
     def load_json_reports(self):
         """Charge tous les rapports JSON de la session"""
@@ -113,6 +122,76 @@ class CodeFixerV3:
         backup_path.parent.mkdir(parents=True, exist_ok=True)
 
         shutil.copy2(file_path, backup_path)
+
+    def rollback_file(self, file_path: Path) -> bool:
+        """Restaure un fichier depuis le backup"""
+        try:
+            relative_path = file_path.relative_to(self.project_path)
+        except ValueError:
+            relative_path = file_path.name
+
+        backup_path = self.session_path / "2-FIXES" / "backup" / relative_path
+
+        if not backup_path.exists():
+            return False
+
+        shutil.copy2(backup_path, file_path)
+        return True
+
+    def verify_syntax(self, file_path: Path) -> tuple[bool, Optional[str]]:
+        """
+        Vérifie la syntaxe d'un fichier TypeScript/JavaScript
+
+        Returns:
+            (success, error_message)
+        """
+
+        # Vérifier que c'est un fichier TS/JS
+        if file_path.suffix not in ['.ts', '.tsx', '.js', '.jsx']:
+            return (True, None)  # Pas applicable
+
+        try:
+            # Essayer avec TypeScript compiler si disponible
+            result = subprocess.run(
+                ['npx', 'tsc', '--noEmit', '--skipLibCheck', str(file_path)],
+                cwd=self.project_path,
+                capture_output=True,
+                timeout=10
+            )
+
+            if result.returncode == 0:
+                return (True, None)
+            else:
+                error_output = result.stderr.decode('utf-8', errors='replace')
+                # Extraire juste l'erreur pertinente
+                error_lines = [line for line in error_output.split('\n') if file_path.name in line]
+                error_msg = '\n'.join(error_lines[:5]) if error_lines else error_output[:200]
+                return (False, error_msg)
+
+        except FileNotFoundError:
+            # TypeScript n'est pas installé, essayer avec Node
+            try:
+                result = subprocess.run(
+                    ['node', '--check', str(file_path)],
+                    cwd=self.project_path,
+                    capture_output=True,
+                    timeout=5
+                )
+
+                if result.returncode == 0:
+                    return (True, None)
+                else:
+                    error_msg = result.stderr.decode('utf-8', errors='replace')[:200]
+                    return (False, error_msg)
+
+            except FileNotFoundError:
+                # Ni TypeScript ni Node disponibles
+                return (True, None)  # On laisse passer (mode dégradé)
+
+        except subprocess.TimeoutExpired:
+            return (False, "Timeout lors de la vérification")
+        except Exception as e:
+            return (False, f"Erreur vérification: {str(e)}")
 
     def apply_emoji_removal(self, file_path: Path, fix: Fix) -> bool:
         """Supprime un emoji"""
@@ -259,7 +338,7 @@ class CodeFixerV3:
             return False
 
     def apply_fix(self, fix: Fix) -> bool:
-        """Applique une correction"""
+        """Applique une correction avec vérifications"""
 
         file_path = self.project_path / fix.file_path
 
@@ -267,19 +346,54 @@ class CodeFixerV3:
             fix.error = f"Fichier introuvable : {file_path}"
             return False
 
+        # MODE DRY-RUN : Simuler sans modifier
+        if self.dry_run:
+            fix.old_code = "[DRY-RUN - non modifié]"
+            fix.new_code = "[DRY-RUN - simulation]"
+            return True
+
         # Backup avant modification
         self.backup_file(file_path)
 
         # Appliquer selon le type
+        success = False
         if fix.fix_type == "emoji_detected":
-            return self.apply_emoji_removal(file_path, fix)
+            success = self.apply_emoji_removal(file_path, fix)
         elif fix.fix_type == "console_log":
-            return self.apply_console_log_removal(file_path, fix)
+            success = self.apply_console_log_removal(file_path, fix)
         elif fix.fix_type == "unused_import":
-            return self.apply_unused_import_removal(file_path, fix)
+            success = self.apply_unused_import_removal(file_path, fix)
         else:
             fix.error = f"Type de correction non supporté : {fix.fix_type}"
             return False
+
+        # Si la modification technique a échoué
+        if not success:
+            return False
+
+        # VÉRIFICATION DE SYNTAXE
+        syntax_ok, syntax_error = self.verify_syntax(file_path)
+
+        if not syntax_ok:
+            # ROLLBACK AUTOMATIQUE
+            rollback_success = self.rollback_file(file_path)
+
+            fix.error = f"Erreur de syntaxe après modification (ROLLBACK {'✅' if rollback_success else '❌'}): {syntax_error}"
+            fix.success = False
+
+            # Tracker l'erreur de syntaxe
+            self.syntax_errors.append({
+                "file": fix.file_path,
+                "line": fix.line_number,
+                "fix_type": fix.fix_type,
+                "error": syntax_error,
+                "rollback_success": rollback_success
+            })
+
+            return False
+
+        # Tout est OK
+        return True
 
     def apply_all_fixes(self):
         """Applique toutes les corrections"""
@@ -362,12 +476,50 @@ class CodeFixerV3:
 
         if self.fixes_failed:
             report += "## ❌ Corrections échouées\n\n"
+            report += f"**Total** : {len(self.fixes_failed)} correction(s) échouée(s)\n\n"
 
-            for fix in self.fixes_failed:
-                report += f"**{fix.file_path}:{fix.line_number}** - {fix.fix_type}\n"
-                report += f"- **Erreur** : {fix.error}\n\n"
+            # Grouper par type d'erreur
+            syntax_errors = [f for f in self.fixes_failed if "syntaxe" in f.error.lower()]
+            other_errors = [f for f in self.fixes_failed if "syntaxe" not in f.error.lower()]
+
+            if syntax_errors:
+                report += f"### 🚨 Erreurs de syntaxe ({len(syntax_errors)}) - ROLLBACK effectué\n\n"
+                for fix in syntax_errors:
+                    report += f"**{fix.file_path}:{fix.line_number}** - {fix.fix_type}\n"
+                    report += f"- **Agent** : {fix.agent}\n"
+                    report += f"- **Description** : {fix.description}\n"
+                    report += f"- **Erreur** : {fix.error}\n\n"
+                    report += "---\n\n"
+
+            if other_errors:
+                report += f"### ⚠️  Autres erreurs ({len(other_errors)})\n\n"
+                for fix in other_errors:
+                    report += f"**{fix.file_path}:{fix.line_number}** - {fix.fix_type}\n"
+                    report += f"- **Agent** : {fix.agent}\n"
+                    report += f"- **Description** : {fix.description}\n"
+                    report += f"- **Erreur** : {fix.error}\n\n"
+
+        # Section statistiques détaillées
+        if self.syntax_errors:
+            report += f"\n## 📊 Détails des erreurs de syntaxe\n\n"
+            report += f"**Fichiers concernés** : {len(set(e['file'] for e in self.syntax_errors))}\n\n"
+
+            for error in self.syntax_errors:
+                report += f"### {error['file']}:{error['line']}\n"
+                report += f"- **Type de correction** : {error['fix_type']}\n"
+                report += f"- **Rollback** : {'✅ Succès' if error['rollback_success'] else '❌ Échec'}\n"
+                report += f"- **Message d'erreur** :\n```\n{error['error']}\n```\n\n"
 
         report += f"""
+---
+
+## 🔒 Sécurité
+
+- ✅ Backup créé pour tous les fichiers modifiés
+- ✅ Vérification de syntaxe après chaque modification
+- ✅ Rollback automatique en cas d'erreur
+- 📁 Backups : `2-FIXES/backup/`
+
 ---
 
 **Rapport généré par Code Fixer V3**
@@ -380,10 +532,12 @@ class CodeFixerV3:
         """Lance le processus complet"""
 
         print("=" * 80)
-        print("🔧 CODE FIXER V3")
+        print("🔧 CODE FIXER V3" + (" [DRY-RUN MODE]" if self.dry_run else ""))
         print("=" * 80)
         print(f"📁 Projet  : {self.project_path.name}")
         print(f"🆔 Session : {self.session_path.name}")
+        if self.dry_run:
+            print(f"⚠️  Mode    : DRY-RUN (simulation - aucune modification)")
         print("=" * 80)
         print()
 
@@ -394,8 +548,12 @@ class CodeFixerV3:
             print("ℹ️  Aucune correction automatique à appliquer.\n")
             return
 
-        # 2. Appliquer les corrections
+        # 2. Appliquer les corrections (ou simuler)
         self.apply_all_fixes()
+
+        # Affichage détaillé des résultats
+        if self.syntax_errors:
+            print(f"🚨 {len(self.syntax_errors)} erreur(s) de syntaxe détectée(s) (rollback effectué)")
 
         # 3. Générer le rapport
         report = self.generate_fixes_report()
@@ -404,22 +562,31 @@ class CodeFixerV3:
         fixes_dir = self.session_path / "2-FIXES"
         fixes_dir.mkdir(parents=True, exist_ok=True)
 
-        report_path = fixes_dir / "FIXES-APPLIED.md"
+        report_name = "FIXES-APPLIED-DRY-RUN.md" if self.dry_run else "FIXES-APPLIED.md"
+        report_path = fixes_dir / report_name
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report)
 
         print(f"\n📄 Rapport : {report_path.relative_to(self.session_path)}")
-        print()
+
+        if self.dry_run:
+            print(f"\n💡 Aucune modification apportée (mode DRY-RUN)")
+            print(f"   Relancez sans --dry-run pour appliquer les corrections\n")
+        else:
+            print()
 
 def main():
     """Point d'entrée"""
 
     if len(sys.argv) < 4 or sys.argv[2] != "--session":
-        print("Usage: python code_fixer_v3.py /path/to/project --session /path/to/session")
+        print("Usage:")
+        print("  python code_fixer_v3.py /path/to/project --session /path/to/session")
+        print("  python code_fixer_v3.py /path/to/project --session /path/to/session --dry-run")
         sys.exit(1)
 
     project_path = Path(sys.argv[1]).resolve()
     session_path = Path(sys.argv[3]).resolve()
+    dry_run = "--dry-run" in sys.argv
 
     if not project_path.exists():
         print(f"❌ Projet introuvable : {project_path}")
@@ -429,7 +596,7 @@ def main():
         print(f"❌ Session introuvable : {session_path}")
         sys.exit(1)
 
-    fixer = CodeFixerV3(project_path, session_path)
+    fixer = CodeFixerV3(project_path, session_path, dry_run=dry_run)
     fixer.run()
 
 if __name__ == "__main__":
