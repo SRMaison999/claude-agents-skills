@@ -388,20 +388,29 @@ class AgentCoordinator:
             )
             
             stdout, stderr = await process.communicate()
-            
+
+            # Décoder avec fallback pour compatibilité Windows/Linux
+            def decode_with_fallback(data):
+                for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                    try:
+                        return data.decode(encoding)
+                    except (UnicodeDecodeError, UnicodeError):
+                        continue
+                return data.decode('utf-8', errors='replace')
+
             if process.returncode == 0:
                 # Parse les résultats (simulé pour l'instant)
                 return {
                     "agent": agent_task.name,
                     "status": "success",
-                    "stdout": stdout.decode('utf-8'),
-                    "stderr": stderr.decode('utf-8')
+                    "stdout": decode_with_fallback(stdout),
+                    "stderr": decode_with_fallback(stderr)
                 }
             else:
                 return {
                     "agent": agent_task.name,
                     "status": "error",
-                    "message": stderr.decode('utf-8')
+                    "message": decode_with_fallback(stderr)
                 }
         
         except Exception as e:
