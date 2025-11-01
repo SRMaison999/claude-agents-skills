@@ -567,10 +567,15 @@ class AgentCoordinatorV3:
         print(f"{'=' * 80}\n")
 
         # Catégoriser par TYPE plutôt que par sévérité
+        # Créer les listes séparément pour éviter les références circulaires
+        nettoyage = [i for i in s.all_issues if any(word in i.issue_type.lower() for word in ['emoji', 'console', 'import', 'commented'])]
+        coherence = [i for i in s.all_issues if 'consistency' in i.agent or i.severity == "important"]
+        autres = [i for i in s.all_issues if i not in nettoyage and i not in coherence]
+
         issues_by_type = {
-            "nettoyage": [i for i in s.all_issues if any(word in i.issue_type.lower() for word in ['emoji', 'console', 'import', 'commented'])],
-            "coherence": [i for i in s.all_issues if 'consistency' in i.agent or i.severity == "important"],
-            "autres": [i for i in s.all_issues if i not in issues_by_type.get("nettoyage", []) and i not in issues_by_type.get("coherence", [])]
+            "nettoyage": nettoyage,
+            "coherence": coherence,
+            "autres": autres
         }
 
         # Nettoyage
