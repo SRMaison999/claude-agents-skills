@@ -75,15 +75,15 @@ Collection d'agents d'analyse et de maintenance de code avec apprentissage conti
 cd button-validator-v2-learning
 python button_validator_v2.py /chemin/vers/projet
 
-# Props & Form Validator (à venir)
+# Props & Form Validator
 cd props-form-validator-v2
 python props_form_validator_v2.py /chemin/vers/projet
 
-# Dead Code Cleaner (à venir)
+# Dead Code Cleaner
 cd dead-code-cleaner-v2
 python dead_code_cleaner_v2.py /chemin/vers/projet
 
-# Code Fixer (à venir)
+# Code Fixer
 cd code-fixer-v2
 python code_fixer_v2.py --auto
 ```
