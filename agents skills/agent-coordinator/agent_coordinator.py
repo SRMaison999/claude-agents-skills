@@ -383,10 +383,15 @@ class AgentCoordinator:
             python_cmd = "py" if platform.system() == "Windows" else "python3"
             cmd = [python_cmd, str(agent_path), str(self.project_path)]
 
+            # Définir le working directory au dossier de l'agent
+            # pour que les rapports soient créés au bon endroit
+            agent_dir = agent_path.parent
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(agent_dir)
             )
             
             stdout, stderr = await process.communicate()
