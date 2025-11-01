@@ -151,9 +151,29 @@ class CodeFixerV3:
             return (True, None)  # Pas applicable
 
         try:
-            # Essayer avec TypeScript compiler si disponible
+            # Pour les fichiers .js/.jsx : utiliser Node.js en priorité
+            if file_path.suffix in ['.js', '.jsx']:
+                try:
+                    result = subprocess.run(
+                        ['node', '--check', str(file_path)],
+                        cwd=self.project_path,
+                        capture_output=True,
+                        timeout=5
+                    )
+
+                    if result.returncode == 0:
+                        return (True, None)
+                    else:
+                        error_msg = result.stderr.decode('utf-8', errors='replace')[:300]
+                        return (False, error_msg)
+
+                except FileNotFoundError:
+                    # Node pas disponible, essayer TypeScript avec --allowJs
+                    pass
+
+            # Pour .ts/.tsx OU si Node unavailable : TypeScript
             result = subprocess.run(
-                ['npx', 'tsc', '--noEmit', '--skipLibCheck', str(file_path)],
+                ['npx', 'tsc', '--noEmit', '--skipLibCheck', '--allowJs', str(file_path)],
                 cwd=self.project_path,
                 capture_output=True,
                 timeout=10
@@ -163,30 +183,19 @@ class CodeFixerV3:
                 return (True, None)
             else:
                 error_output = result.stderr.decode('utf-8', errors='replace')
-                # Extraire juste l'erreur pertinente
-                error_lines = [line for line in error_output.split('\n') if file_path.name in line]
-                error_msg = '\n'.join(error_lines[:5]) if error_lines else error_output[:200]
+
+                # Ignorer l'erreur "allowJs" si c'est la seule erreur
+                if "Did you mean to enable the 'allowJs' option?" in error_output and len(error_output) < 300:
+                    return (True, None)  # Pas une vraie erreur de syntaxe
+
+                # Extraire les erreurs pertinentes
+                error_lines = [line for line in error_output.split('\n') if file_path.name in line or 'error TS' in line]
+                error_msg = '\n'.join(error_lines[:5]) if error_lines else error_output[:300]
                 return (False, error_msg)
 
         except FileNotFoundError:
-            # TypeScript n'est pas installé, essayer avec Node
-            try:
-                result = subprocess.run(
-                    ['node', '--check', str(file_path)],
-                    cwd=self.project_path,
-                    capture_output=True,
-                    timeout=5
-                )
-
-                if result.returncode == 0:
-                    return (True, None)
-                else:
-                    error_msg = result.stderr.decode('utf-8', errors='replace')[:200]
-                    return (False, error_msg)
-
-            except FileNotFoundError:
-                # Ni TypeScript ni Node disponibles
-                return (True, None)  # On laisse passer (mode dégradé)
+            # Ni TypeScript ni Node disponibles
+            return (True, None)  # Mode dégradé - on laisse passer
 
         except subprocess.TimeoutExpired:
             return (False, "Timeout lors de la vérification")
