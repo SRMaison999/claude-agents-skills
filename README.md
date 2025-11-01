@@ -104,25 +104,136 @@ Lance dead-code-cleaner-v2 sur mon projet
 
 ---
 
-## 📊 Workflow multi-agents recommandé
+## 📊 Workflow intelligent orchestré par Agent Coordinator
 
-### Phase 1 : Analyse (lecture seule)
-1. **Button Validator** → Détecte problèmes boutons
-2. **Props & Form Validator** → Détecte props/modales/forms/emojis
-3. **Dead Code Cleaner** → Identifie code mort
+### 🎯 Usage recommandé : Laissez l'Agent Coordinator orchestrer tout
 
-### Phase 2 : Review
-- Lire tous les rapports générés
-- Prioriser les corrections
-- Valider ce qui doit être corrigé
+**Commande simple** :
+```bash
+python agent_coordinator.py /chemin/vers/projet --auto
+```
 
-### Phase 3 : Application
-- **Code Fixer** → Applique les corrections validées
+Ou pour une section/composant spécifique :
+```
+"Agent Coordinator, analyse la section Hébergements"
+```
 
-### Phase 4 : Vérification
-- Relancer les agents analyseurs
-- Comparer les rapports (avant/après)
-- Valider que tout est correct
+### 🔄 Workflow automatique
+
+**L'Agent Coordinator gère tout automatiquement :**
+
+#### 1️⃣ Détection d'intention
+- Analyse votre demande
+- Identifie la portée (projet complet, dossier, composant)
+- Sélectionne les agents appropriés
+
+#### 2️⃣ Lancement parallèle des agents analyseurs
+- **Button Validator** → Détecte problèmes boutons
+- **Props & Form Validator** → Détecte props/modales/forms/emojis
+- **Dead Code Cleaner** → Identifie code mort
+- **Component Consistency Checker** → Vérifie cohérence visuelle
+
+#### 3️⃣ Compilation et analyse des rapports
+- Lit tous les rapports générés
+- Compile en un rapport maître
+- Calcule la confiance moyenne
+
+#### 4️⃣ Décision intelligente selon la confiance
+
+**Confiance HAUTE (≥90%)** :
+- ✅ Présente les corrections à appliquer
+- ✅ Propose de lancer **Code Fixer** automatiquement
+- ✅ Vous demande confirmation simple (o/N)
+
+**Confiance BASSE (<90%)** :
+- ⚠️ Présente les erreurs détectées
+- ⚠️ **ATTEND VOTRE VALIDATION** avant de continuer
+- ⚠️ Vous demande de valider chaque correction manuellement
+- ✅ Ne lance Code Fixer qu'après votre validation
+
+#### 5️⃣ Application des corrections (si validé)
+- Lance **Code Fixer** automatiquement
+- Applique les corrections validées
+- Crée des backups automatiques
+
+#### 6️⃣ Mise à jour de la documentation
+- Lance **README Editor** automatiquement
+- Met à jour la documentation des fichiers modifiés
+- Génère un README à jour
+
+#### 7️⃣ Rapport final
+- Présente le résumé complet
+- Corrections appliquées vs échouées
+- Fichiers modifiés
+- Documentation mise à jour
+
+---
+
+### 🎭 Exemple de session
+
+```
+Vous : "Analyse la section Hébergements"
+
+Agent Coordinator :
+  🔍 Détection : analyse du dossier src/components/hebergements
+  ⚙️  Lancement de 4 agents en parallèle...
+  📊 Compilation des rapports...
+
+  📋 RÉSULTATS :
+  - 12 issues détectées
+  - Confiance moyenne : 95%
+
+  ✅ CONFIANCE HAUTE - Corrections sûres
+
+  Corrections à appliquer :
+  - 5 emojis à supprimer (confiance 100%)
+  - 3 imports inutilisés (confiance 95%)
+  - 2 console.log à retirer (confiance 100%)
+  - 2 hover states manquants (confiance 85%)
+
+  Lancer Code Fixer pour appliquer ces corrections ? [o/N]
+
+Vous : o
+
+Agent Coordinator :
+  🔧 Lancement de Code Fixer...
+  ✅ 10/12 corrections appliquées avec succès
+  ❌ 2 corrections échouées (hover states - validation manuelle requise)
+
+  📝 Lancement de README Editor...
+  ✅ Documentation mise à jour
+
+  🎉 TERMINÉ !
+  Fichiers modifiés : 8
+  Documentation à jour : ✅
+```
+
+---
+
+### ⚡ Mode manuel (avancé)
+
+Si vous préférez contrôler manuellement chaque étape :
+
+**Phase 1 : Analyse**
+```bash
+python button_validator_v2.py /chemin/projet
+python props_form_validator_v2.py /chemin/projet
+python dead_code_cleaner_v2.py /chemin/projet
+```
+
+**Phase 2 : Review**
+- Lire les rapports dans `./reports/`
+- Valider les corrections
+
+**Phase 3 : Application**
+```bash
+python code_fixer_v2.py --auto
+```
+
+**Phase 4 : Documentation**
+```bash
+python readme_editor_v2.py /chemin/projet
+```
 
 ---
 

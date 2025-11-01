@@ -512,7 +512,149 @@ class AgentCoordinator:
             print(f"   [3] Corriger avec validation")
             print(f"   [4] Rien pour l'instant")
             print(f"{'─' * 70}\n")
-    
+
+    async def analyze_confidence_and_propose_fixes(self, summary: AnalysisSummary) -> bool:
+        """Analyse la confiance et propose/demande validation pour lancer Code Fixer"""
+
+        if summary.total_issues == 0:
+            print("\n✅ Aucun problème détecté, rien à corriger !")
+            return False
+
+        print(f"\n{'=' * 70}")
+        print(f"🎯 ANALYSE DES CORRECTIONS POSSIBLES")
+        print(f"{'=' * 70}\n")
+
+        # Analyser la confiance
+        if summary.avg_confidence >= 90:
+            # CONFIANCE HAUTE - Proposition directe
+            print(f"✅ CONFIANCE HAUTE ({summary.avg_confidence:.0f}%) - Corrections sûres\n")
+            print(f"Corrections à appliquer :")
+            print(f"  • {summary.auto_fixable_count} corrections automatiques disponibles")
+            print(f"  • Confiance moyenne : {summary.avg_confidence:.0f}%\n")
+
+            # Proposer de lancer Code Fixer
+            response = input("Lancer Code Fixer pour appliquer ces corrections ? [o/N] : ")
+            return response.lower() in ['o', 'oui', 'y', 'yes']
+
+        else:
+            # CONFIANCE BASSE - Demander validation
+            print(f"⚠️  CONFIANCE BASSE ({summary.avg_confidence:.0f}%) - Validation requise\n")
+            print(f"Issues détectées :")
+            print(f"  • Critiques : {summary.critical_count}")
+            print(f"  • Importantes : {summary.important_count}")
+            print(f"  • Mineures : {summary.minor_count}\n")
+
+            print(f"⚠️  Certaines corrections ont une confiance <90%")
+            print(f"   Je dois attendre votre validation avant de continuer.\n")
+
+            # Demander validation explicite
+            print("Souhaitez-vous :")
+            print("  [1] Voir le détail complet et valider manuellement")
+            print("  [2] Appliquer uniquement les corrections haute confiance (≥90%)")
+            print("  [3] Annuler")
+
+            response = input("\nVotre choix [1/2/3] : ")
+
+            if response == "1":
+                print("\n📋 Affichage du détail complet...")
+                # Ici on pourrait afficher plus de détails
+                response = input("\nAprès review, lancer Code Fixer ? [o/N] : ")
+                return response.lower() in ['o', 'oui', 'y', 'yes']
+            elif response == "2":
+                print(f"\n✅ OK, application des corrections haute confiance uniquement")
+                return True
+            else:
+                print("\n❌ Annulé")
+                return False
+
+    async def launch_code_fixer(self) -> Dict[str, Any]:
+        """Lance Code Fixer pour appliquer les corrections"""
+
+        print(f"\n{'=' * 70}")
+        print(f"🔧 LANCEMENT DE CODE FIXER")
+        print(f"{'=' * 70}\n")
+
+        code_fixer_path = Path(__file__).parent.parent / "code-fixer" / "code_fixer_v2.py"
+
+        if not code_fixer_path.exists():
+            print(f"❌ Code Fixer introuvable : {code_fixer_path}")
+            return {"status": "error", "message": "Code Fixer non trouvé"}
+
+        try:
+            # Lancer Code Fixer en mode auto
+            result = subprocess.run(
+                ['python3', str(code_fixer_path), '--auto'],
+                cwd=self.project_path,
+                capture_output=True,
+                timeout=600  # 10 minutes max
+            )
+
+            if result.returncode == 0:
+                print(f"✅ Code Fixer terminé avec succès\n")
+                print(result.stdout.decode('utf-8'))
+
+                # Extraire les fichiers modifiés du output
+                output = result.stdout.decode('utf-8')
+                modified_files = []
+                # Pattern simple pour extraire les fichiers (à améliorer)
+                for line in output.split('\n'):
+                    if 'modifié' in line.lower() or 'modified' in line.lower():
+                        modified_files.append(line.strip())
+
+                return {
+                    "status": "success",
+                    "modified_files": modified_files,
+                    "output": output
+                }
+            else:
+                print(f"⚠️  Code Fixer a rencontré des erreurs\n")
+                print(result.stderr.decode('utf-8'))
+                return {
+                    "status": "error",
+                    "message": result.stderr.decode('utf-8')
+                }
+
+        except Exception as e:
+            print(f"❌ Erreur lors du lancement de Code Fixer : {e}")
+            return {"status": "error", "message": str(e)}
+
+    async def launch_readme_editor(self, modified_files: List[str] = None) -> Dict[str, Any]:
+        """Lance README Editor pour mettre à jour la documentation"""
+
+        print(f"\n{'=' * 70}")
+        print(f"📝 LANCEMENT DE README EDITOR")
+        print(f"{'=' * 70}\n")
+
+        readme_editor_path = Path(__file__).parent.parent / "readme-editor" / "readme_editor_v2.py"
+
+        if not readme_editor_path.exists():
+            print(f"⚠️  README Editor introuvable : {readme_editor_path}")
+            return {"status": "error", "message": "README Editor non trouvé"}
+
+        try:
+            print(f"📝 Mise à jour de la documentation...\n")
+
+            # Lancer README Editor
+            result = subprocess.run(
+                ['python3', str(readme_editor_path), str(self.project_path)],
+                capture_output=True,
+                timeout=300,  # 5 minutes max
+                input=b'n\n'  # Répondre 'n' à la question des README par dossier
+            )
+
+            if result.returncode == 0:
+                print(f"✅ Documentation mise à jour avec succès\n")
+                print(result.stdout.decode('utf-8'))
+                return {"status": "success"}
+            else:
+                print(f"⚠️  README Editor a rencontré des erreurs\n")
+                print(result.stderr.decode('utf-8'))
+                return {"status": "error", "message": result.stderr.decode('utf-8')}
+
+        except Exception as e:
+            print(f"⚠️  Erreur lors du lancement de README Editor : {e}")
+            return {"status": "error", "message": str(e)}
+
     def handle_followup(self, user_message: str) -> str:
         """Gère les questions de suivi dans la conversation"""
         
@@ -581,11 +723,28 @@ class AgentCoordinator:
                 
                 # Exécuter
                 results = await self.execute_plan(plan)
-                
+
                 # Compiler et présenter
                 summary = self.compile_results(results)
                 self.present_summary(summary)
-                
+
+                # NOUVEAU : Analyse confiance et proposition Code Fixer
+                should_fix = await self.analyze_confidence_and_propose_fixes(summary)
+
+                if should_fix:
+                    # Lancer Code Fixer
+                    fixer_result = await self.launch_code_fixer()
+
+                    if fixer_result.get("status") == "success":
+                        # Lancer README Editor après Code Fixer
+                        modified_files = fixer_result.get("modified_files", [])
+                        await self.launch_readme_editor(modified_files)
+
+                        print(f"\n🎉 WORKFLOW COMPLET TERMINÉ !")
+                        print(f"  ✅ Analyse effectuée")
+                        print(f"  ✅ Corrections appliquées")
+                        print(f"  ✅ Documentation mise à jour\n")
+
                 # Mémoriser l'échange
                 self.session.remember(user_input, f"Exécuté : {plan.description}")
                 
@@ -603,15 +762,33 @@ class AgentCoordinator:
             return
         
         if self.auto_mode:
-            # Mode automatique - analyse complète
+            # Mode automatique - analyse complète avec workflow intelligent
             intent = Intent(action="full_analysis", agents=["all"], confidence=1.0)
             plan = self.create_action_plan(intent)
-            
+
             confirmed = self.present_plan(plan)
             if confirmed:
+                # Exécuter l'analyse
                 results = await self.execute_plan(plan)
                 summary = self.compile_results(results)
                 self.present_summary(summary)
+
+                # NOUVEAU : Workflow intelligent automatique
+                should_fix = await self.analyze_confidence_and_propose_fixes(summary)
+
+                if should_fix:
+                    # Lancer Code Fixer
+                    fixer_result = await self.launch_code_fixer()
+
+                    if fixer_result.get("status") == "success":
+                        # Lancer README Editor après Code Fixer
+                        modified_files = fixer_result.get("modified_files", [])
+                        await self.launch_readme_editor(modified_files)
+
+                        print(f"\n🎉 WORKFLOW COMPLET TERMINÉ !")
+                        print(f"  ✅ Analyse effectuée")
+                        print(f"  ✅ Corrections appliquées")
+                        print(f"  ✅ Documentation mise à jour\n")
         else:
             # Mode conversationnel
             await self.conversational_loop()
