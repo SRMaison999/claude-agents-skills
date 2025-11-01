@@ -89,18 +89,30 @@ class CodeFixerV3:
 
                 if consensus_data.get("consensus_enabled", False):
                     stats = consensus_data.get("statistics", {})
-                    print(f"✅ Issues validées par consensus : {stats.get('total_consensus', 0)}")
-                    print(f"   (minimum 2 agents d'accord)\n")
+                    version = consensus_data.get("consensus_version", "V1")
+                    strategy = consensus_data.get("consensus_strategy", "unknown")
+
+                    print(f"✅ Consensus {version} - {strategy}")
+                    print(f"   Fichiers validés : {stats.get('validated_files', 0)}")
+                    print(f"   Issues validées  : {stats.get('total_validated_issues', stats.get('total_consensus', 0))}")
+                    print(f"   Auto-fixable     : {stats.get('auto_fixable', 0)}")
+                    print()
 
                     # Charger les issues de consensus
                     for issue in consensus_data.get("issues", []):
                         if issue.get("auto_fixable", False):
-                            # Utiliser le premier agent comme nom (pour compatibilité)
-                            agreed_by = issue.get("agreed_by", [])
-                            agent_name = agreed_by[0] if agreed_by else "consensus"
+                            # V2 : agent est directement dans l'issue
+                            # V1 : agent dans agreed_by
+                            agent_name = issue.get("agent", "consensus")
+                            if not agent_name or agent_name == "consensus":
+                                agreed_by = issue.get("agreed_by", [])
+                                agent_name = agreed_by[0] if agreed_by else "consensus"
+
+                            # Indicateur de consensus pour V2
+                            consensus_label = "consensus-validated"
 
                             fix = Fix(
-                                agent=f"consensus-{issue.get('consensus_level', 2)}",
+                                agent=consensus_label,
                                 file_path=issue.get("file", ""),
                                 line_number=issue.get("line", 0),
                                 fix_type=issue.get("type", ""),

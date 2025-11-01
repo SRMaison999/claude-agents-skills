@@ -35,8 +35,8 @@ from collections import defaultdict
 # Import du convertisseur
 from report_converter import convert_report, save_json_report
 
-# Import du consensus analyzer
-from consensus_analyzer import ConsensusAnalyzer, ConsensusIssue
+# Import du consensus analyzer V2 (validation par fichier)
+from consensus_analyzer_v2 import ConsensusAnalyzerV2, FileConsensus
 
 # Forcer UTF-8 pour la console Windows (support des emojis)
 if sys.platform == 'win32':
@@ -94,11 +94,14 @@ class SessionSummary:
     fixes_applied: int = 0
     readme_updated: bool = False
 
-    # Consensus data
+    # Consensus data (V2 - par fichier)
     consensus_enabled: bool = True
-    consensus_issues: List[ConsensusIssue] = field(default_factory=list)
-    consensus_count: int = 0
-    rejected_count: int = 0
+    consensus_validated_files: List[FileConsensus] = field(default_factory=list)
+    consensus_validated_issues: List[Issue] = field(default_factory=list)
+    consensus_files_count: int = 0
+    consensus_issues_count: int = 0
+    rejected_files_count: int = 0
+    rejected_issues_count: int = 0
 
 class AgentCoordinatorV3:
     """
@@ -379,13 +382,15 @@ class AgentCoordinatorV3:
 
     def analyze_consensus(self):
         """
-        Analyse le consensus multi-agents
+        Analyse le consensus multi-agents V2 - Validation par fichier
 
-        Seules les issues validées par au moins 2 agents seront appliquées
+        Stratégie adaptée aux agents spécialisés :
+        Si 2+ agents détectent des problèmes dans un fichier,
+        TOUTES les corrections auto-fixables du fichier sont validées
         """
 
         print(f"\n{'=' * 80}")
-        print(f"🤝 ANALYSE DE CONSENSUS MULTI-AGENTS")
+        print(f"🤝 CONSENSUS V2 - VALIDATION PAR FICHIER")
         print(f"{'=' * 80}\n")
 
         if self.session_summary.successful_agents < 2:
@@ -394,43 +399,46 @@ class AgentCoordinatorV3:
             self.session_summary.consensus_enabled = False
             return
 
-        # Lancer l'analyse de consensus
-        analyzer = ConsensusAnalyzer(line_tolerance=2)
-        consensus_issues, rejected_issues = analyzer.find_consensus(
-            self.session_summary.all_issues,
-            min_agents=2
-        )
+        # Lancer l'analyse de consensus V2
+        analyzer = ConsensusAnalyzerV2(min_agents=2)
+        result = analyzer.find_consensus(self.session_summary.all_issues)
 
         # Mettre à jour le résumé
-        self.session_summary.consensus_issues = consensus_issues
-        self.session_summary.consensus_count = len(consensus_issues)
-        self.session_summary.rejected_count = len(rejected_issues)
+        self.session_summary.consensus_validated_files = result.validated_files
+        self.session_summary.consensus_validated_issues = result.validated_issues
+        self.session_summary.consensus_files_count = len(result.validated_files)
+        self.session_summary.consensus_issues_count = len(result.validated_issues)
+        self.session_summary.rejected_files_count = len(result.rejected_files)
+        self.session_summary.rejected_issues_count = len(result.rejected_issues)
 
-        # Afficher le rapport
-        stats = analyzer.get_statistics()
+        # Statistiques
+        stats = result.get_statistics()
 
-        print(f"✅ Issues validées par consensus : {stats['total_consensus']}")
-        if stats['consensus_2_agents'] > 0:
-            print(f"   • 2 agents d'accord : {stats['consensus_2_agents']}")
-        if stats['consensus_3_agents'] > 0:
-            print(f"   • 3 agents d'accord : {stats['consensus_3_agents']}")
-        if stats['consensus_4_plus'] > 0:
-            print(f"   • 4+ agents d'accord : {stats['consensus_4_plus']}")
+        print(f"📁 Fichiers validés par consensus : {stats['validated_files']}")
+        if stats['files_2_agents'] > 0:
+            print(f"   • 2 agents d'accord : {stats['files_2_agents']} fichiers")
+        if stats['files_3_agents'] > 0:
+            print(f"   • 3 agents d'accord : {stats['files_3_agents']} fichiers")
+        if stats['files_4_plus'] > 0:
+            print(f"   • 4+ agents d'accord : {stats['files_4_plus']} fichiers")
         print()
 
-        print(f"🤖 Corrections automatiques disponibles : {stats['auto_fixable']}")
+        print(f"✅ Issues validées : {stats['total_validated_issues']}")
+        print(f"   • Corrections automatiques : {stats['auto_fixable_validated']}")
         print()
 
-        print(f"❌ Issues rejetées (1 seul agent) : {stats['total_rejected']}")
-        print(f"   → Pas assez de consensus pour appliquer")
+        print(f"❌ Fichiers rejetés (1 seul agent) : {stats['rejected_files']}")
+        print(f"   • Issues rejetées : {stats['total_rejected_issues']}")
         print()
 
-        if stats['total_consensus'] > 0:
-            print(f"💡 Seules les {stats['total_consensus']} issues validées seront appliquées")
-            print(f"   (protection contre les faux positifs)")
+        if stats['validated_files'] > 0:
+            print(f"💡 Stratégie adaptée aux agents spécialisés :")
+            print(f"   Si 2+ agents détectent des problèmes dans un fichier,")
+            print(f"   → TOUTES les corrections auto-fixables du fichier sont validées")
+            print(f"   (même si les agents détectent des types différents)")
         else:
-            print(f"⚠️  Aucun consensus trouvé")
-            print(f"   Les agents ne sont pas d'accord sur les corrections")
+            print(f"⚠️  Aucun fichier validé par consensus")
+            print(f"   Chaque fichier n'a été analysé que par 1 seul agent")
 
         print(f"{'=' * 80}")
 
@@ -438,26 +446,40 @@ class AgentCoordinatorV3:
         self.save_consensus_issues()
 
         # Mettre à jour auto_fixable_count avec le consensus
-        self.session_summary.auto_fixable_count = stats['auto_fixable']
+        self.session_summary.auto_fixable_count = stats['auto_fixable_validated']
 
     def save_consensus_issues(self):
-        """Sauvegarde les issues de consensus en JSON"""
+        """Sauvegarde les issues de consensus V2 en JSON"""
 
         if not self.session_summary.consensus_enabled:
             return
 
         consensus_file = self.session_summary.session_path / "1-ANALYSIS" / "consensus-issues.json"
 
-        # Convertir ConsensusIssue en dict pour JSON
+        # Convertir les issues validées en format JSON
         consensus_data = {
+            "consensus_version": "V2",
+            "consensus_strategy": "validation_by_file",
             "consensus_enabled": True,
             "min_agents_required": 2,
             "timestamp": datetime.now().isoformat(),
             "statistics": {
-                "total_consensus": self.session_summary.consensus_count,
-                "rejected": self.session_summary.rejected_count,
-                "auto_fixable": sum(1 for i in self.session_summary.consensus_issues if i.auto_fixable)
+                "validated_files": self.session_summary.consensus_files_count,
+                "rejected_files": self.session_summary.rejected_files_count,
+                "total_validated_issues": self.session_summary.consensus_issues_count,
+                "total_rejected_issues": self.session_summary.rejected_issues_count,
+                "auto_fixable": sum(1 for i in self.session_summary.consensus_validated_issues if i.auto_fixable)
             },
+            "validated_files": [
+                {
+                    "file": fc.file_path,
+                    "agents_count": fc.agents_count,
+                    "agents": fc.agents,
+                    "total_issues": fc.total_issues,
+                    "auto_fixable_count": len(fc.auto_fixable_issues)
+                }
+                for fc in self.session_summary.consensus_validated_files
+            ],
             "issues": [
                 {
                     "file": issue.file_path,
@@ -470,17 +492,16 @@ class AgentCoordinatorV3:
                     "new_code": issue.new_code,
                     "confidence": issue.confidence,
                     "auto_fixable": issue.auto_fixable,
-                    "agreed_by": issue.agreed_by,
-                    "consensus_level": issue.consensus_level
+                    "agent": issue.agent
                 }
-                for issue in self.session_summary.consensus_issues
+                for issue in self.session_summary.consensus_validated_issues
             ]
         }
 
         with open(consensus_file, 'w', encoding='utf-8') as f:
             json.dump(consensus_data, f, indent=2, ensure_ascii=False)
 
-        print(f"\n💾 Consensus sauvegardé : consensus-issues.json\n")
+        print(f"\n💾 Consensus V2 sauvegardé : consensus-issues.json\n")
 
     def present_analysis_summary(self):
         """Présente le résumé de l'analyse"""
@@ -793,9 +814,13 @@ class AgentCoordinatorV3:
             "start_time": self.session_summary.start_time,
             "end_time": self.session_summary.end_time,
             "consensus": {
+                "version": "V2",
+                "strategy": "validation_by_file",
                 "enabled": self.session_summary.consensus_enabled,
-                "consensus_count": self.session_summary.consensus_count,
-                "rejected_count": self.session_summary.rejected_count
+                "validated_files": self.session_summary.consensus_files_count,
+                "rejected_files": self.session_summary.rejected_files_count,
+                "validated_issues": self.session_summary.consensus_issues_count,
+                "rejected_issues": self.session_summary.rejected_issues_count
             },
             "statistics": {
                 "total_agents": self.session_summary.total_agents,
