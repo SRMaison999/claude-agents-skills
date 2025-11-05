@@ -1,454 +1,268 @@
-# Claude Agents - Collection d'agents intelligents
+# Claude Code Skills - Analyse de Code React/TypeScript
 
-Collection d'agents d'analyse et de maintenance de code avec apprentissage continu.
+Collection de 3 skills officiels au format Anthropic pour l'analyse rigoureuse de code React/TypeScript.
 
-## 🎯 Agents disponibles
+> **Principe fondamental :** Ces skills suivent la règle "NEVER HALLUCINATE" - ils ne rapportent que des problèmes réellement vérifiés dans le code, jamais d'hypothèses.
 
-### ✅ Button Validator V2 - Learning Edition
-**Status** : Complet et fonctionnel  
-**Fonction** : Analyse exhaustive des boutons (fonctionnalité + style)  
-**Apprentissage** : Oui (mémoire permanente)  
-**Autonomie** : Équilibrée (>90% confiance)  
+## 🎯 Skills Disponibles
 
-**Ce qu'il fait** :
-- Détecte boutons sans handler (CRITIQUE)
-- Vérifie cohérence visuelle Tailwind
-- Apprend tes patterns préférés
-- Corrige automatiquement après apprentissage
+### 1. 🔍 code-quality-analyzer
+**Analyse de qualité de code React/TypeScript**
 
----
+Détecte les problèmes réels de qualité :
+- ❌ Variables d'état non utilisées (useState, useRef, useCallback)
+- ❌ Boutons non-fonctionnels (onClick vide ou avec console.log)
+- ❌ Gestion d'erreur manquante (try/catch absents)
+- ❌ Browser `confirm()` au lieu de modals personnalisées
+- ❌ Actions destructives sans confirmation
+- ❌ États de chargement manquants
+- ❌ États vides non gérés (écran blanc si aucune donnée)
+- ❌ Problèmes d'accessibilité basiques (boutons sans label)
 
-### 📝 Props & Form Validator V2
-**Status** : Complet et fonctionnel ✅
-**Fonction** : Analyse props, modales et formulaires + détection emojis
-**Règle critique** : AUCUN EMOJI dans l'application
-**Code** : props_form_validator_v2.py (870+ lignes)  
-
-**Ce qu'il fait** :
-- Props manquantes/inutilisées/types incorrects
-- Structure des modales (header, body, footer)
-- Formulaires (labels, validation, messages d'erreur)
-- **Détection stricte emojis** (priorité absolue)
-- Cohérence visuelle globale
+**Format du rapport :** Chaque problème inclut le numéro de ligne exact, le code problématique, l'impact utilisateur, et une solution avec estimation de temps.
 
 ---
 
-### 🧹 Dead Code Cleaner V2
-**Status** : Complet et fonctionnel ✅
-**Fonction** : Suppression du code mort et inutilisé
-**Code** : dead_code_cleaner_v2.py (640+ lignes)  
+### 2. ♿ accessibility-checker
+**Analyse d'accessibilité conforme WCAG 2.1**
 
-**Ce qu'il fait** :
-- Imports non utilisés
-- Variables/fonctions jamais appelées
-- Composants jamais importés
-- Console.log oubliés
-- Code commenté obsolète
-- Props inutilisées
+Détecte les violations d'accessibilité réelles :
+- ❌ ARIA labels manquants sur boutons icône-only
+- ❌ HTML non-sémantique (`<div onClick>` au lieu de `<button>`)
+- ❌ Navigation clavier impossible (tabIndex manquant)
+- ❌ Gestion du focus manquante dans les modals
+- ❌ Labels de formulaire absents ou mal associés
+- ❌ Images sans alt text approprié
+- ❌ Couleur comme seul indicateur (problème pour daltoniens)
+- ❌ Contenu dynamique non-annoncé aux lecteurs d'écran
+- ❌ Éléments disabled sans explication
+- ❌ Modals sans role="dialog" ou sans fermeture Escape
 
-**Sécurité** : Ne touche JAMAIS aux exports, routes ou configs
-
----
-
-### 🔧 Code Fixer V2
-**Status** : Complet et fonctionnel ✅
-**Fonction** : Application automatique des corrections validées
-**Code** : code_fixer_v2.py (720+ lignes)  
-
-**Ce qu'il fait** :
-- Lit les rapports des autres agents
-- Applique les corrections auto (confiance >90%)
-- Vérifie intégrité (syntaxe, compilation, tests)
-- Crée commits Git
-- Rollback automatique si erreur
-
-**Sécurité** : Backup avant modifications, validation stricte
+**Références WCAG :** Chaque problème est lié à un critère WCAG spécifique (1.1.1, 2.1.1, 4.1.2, etc.)
 
 ---
 
-## 🚀 Utilisation rapide
+### 3. 🎨 visual-consistency-checker
+**Détection d'incohérences visuelles entre composants**
 
-### Agent individuel
+Compare les styles réels entre plusieurs fichiers :
+- ⚠️ Tabs avec styles différents (pill vs underline)
+- ⚠️ Boutons primaires avec tailles/padding différents
+- ⚠️ Cards avec shadows ou border-radius incohérents
+- ⚠️ Spacing incohérent (gap-2 vs gap-4 pour même contexte)
+- ⚠️ Typographie variable (h2 avec text-2xl vs text-xl)
+- ⚠️ États vides avec styles différents
+- ⚠️ Indicateurs de chargement variés
+- ⚠️ Icônes de tailles différentes (w-4 vs w-5 vs w-6)
+- ⚠️ Formulaires stylés différemment
+- ⚠️ Modals avec padding/structure différents
+
+**Méthodologie :** Lit au minimum 2 fichiers, extrait les className exacts, et documente les différences précises avec recommandation de standardisation.
+
+---
+
+## 📥 Installation Rapide
+
+### Sur votre ordinateur local
 
 ```bash
-# Button Validator
-cd button-validator-v2-learning
-python button_validator_v2.py /chemin/vers/projet
+# 1. Cloner le repository
+git clone https://github.com/SRMaison999/claude-agents-skills.git
+cd claude-agents-skills
 
-# Props & Form Validator
-cd props-form-validator-v2
-python props_form_validator_v2.py /chemin/vers/projet
+# 2. Aller sur la branche avec les skills
+git checkout claude/repo-access-setup-011CUouyieGWSxu6Dw8rT8mG
 
-# Dead Code Cleaner
-cd dead-code-cleaner-v2
-python dead_code_cleaner_v2.py /chemin/vers/projet
-
-# Code Fixer
-cd code-fixer-v2
-python code_fixer_v2.py --auto
+# 3. Installer dans Claude Code (script automatique)
+./install-skills.sh
 ```
 
-### Depuis Claude Code
+Le script copie automatiquement les skills dans `~/.claude/skills/` sur votre machine.
 
-```
-Lance button-validator-v2-learning sur mon projet
-```
+### Installation manuelle
 
-```
-Lance props-form-validator-v2 sur mon projet
-```
-
-```
-Lance dead-code-cleaner-v2 sur mon projet
-```
-
----
-
-## 📊 Workflow intelligent orchestré par Agent Coordinator
-
-### 🎯 Usage recommandé : Laissez l'Agent Coordinator orchestrer tout
-
-**Commande simple** :
 ```bash
-python agent_coordinator.py /chemin/vers/projet --auto
+mkdir -p ~/.claude/skills/
+cp -r skills/* ~/.claude/skills/
 ```
 
-Ou pour une section/composant spécifique :
-```
-"Agent Coordinator, analyse la section Hébergements"
-```
+### Vérifier l'installation
 
-### 🔄 Workflow automatique
-
-**L'Agent Coordinator gère tout automatiquement :**
-
-#### 1️⃣ Détection d'intention
-- Analyse votre demande
-- Identifie la portée (projet complet, dossier, composant)
-- Sélectionne les agents appropriés
-
-#### 2️⃣ Lancement parallèle des agents analyseurs
-- **Button Validator** → Détecte problèmes boutons
-- **Props & Form Validator** → Détecte props/modales/forms/emojis
-- **Dead Code Cleaner** → Identifie code mort
-- **Component Consistency Checker** → Vérifie cohérence visuelle
-
-#### 3️⃣ Compilation et analyse des rapports
-- Lit tous les rapports générés
-- Compile en un rapport maître
-- Calcule la confiance moyenne
-
-#### 4️⃣ Décision intelligente selon la confiance
-
-**Confiance HAUTE (≥90%)** :
-- ✅ Présente les corrections à appliquer
-- ✅ Propose de lancer **Code Fixer** automatiquement
-- ✅ Vous demande confirmation simple (o/N)
-
-**Confiance BASSE (<90%)** :
-- ⚠️ Présente les erreurs détectées
-- ⚠️ **ATTEND VOTRE VALIDATION** avant de continuer
-- ⚠️ Vous demande de valider chaque correction manuellement
-- ✅ Ne lance Code Fixer qu'après votre validation
-
-#### 5️⃣ Application des corrections (si validé)
-- Lance **Code Fixer** automatiquement
-- Applique les corrections validées
-- Crée des backups automatiques
-
-#### 6️⃣ Mise à jour de la documentation
-- Lance **README Editor** automatiquement
-- Met à jour la documentation des fichiers modifiés
-- Génère un README à jour
-
-#### 7️⃣ Rapport final
-- Présente le résumé complet
-- Corrections appliquées vs échouées
-- Fichiers modifiés
-- Documentation mise à jour
-
----
-
-### 🎭 Exemple de session
-
-```
-Vous : "Analyse la section Hébergements"
-
-Agent Coordinator :
-  🔍 Détection : analyse du dossier src/components/hebergements
-  ⚙️  Lancement de 4 agents en parallèle...
-  📊 Compilation des rapports...
-
-  📋 RÉSULTATS :
-  - 12 issues détectées
-  - Confiance moyenne : 95%
-
-  ✅ CONFIANCE HAUTE - Corrections sûres
-
-  Corrections à appliquer :
-  - 5 emojis à supprimer (confiance 100%)
-  - 3 imports inutilisés (confiance 95%)
-  - 2 console.log à retirer (confiance 100%)
-  - 2 hover states manquants (confiance 85%)
-
-  Lancer Code Fixer pour appliquer ces corrections ? [o/N]
-
-Vous : o
-
-Agent Coordinator :
-  🔧 Lancement de Code Fixer...
-  ✅ 10/12 corrections appliquées avec succès
-  ❌ 2 corrections échouées (hover states - validation manuelle requise)
-
-  📝 Lancement de README Editor...
-  ✅ Documentation mise à jour
-
-  🎉 TERMINÉ !
-  Fichiers modifiés : 8
-  Documentation à jour : ✅
-```
-
----
-
-### ⚡ Mode manuel (avancé)
-
-Si vous préférez contrôler manuellement chaque étape :
-
-**Phase 1 : Analyse**
 ```bash
-python button_validator_v2.py /chemin/projet
-python props_form_validator_v2.py /chemin/projet
-python dead_code_cleaner_v2.py /chemin/projet
-```
-
-**Phase 2 : Review**
-- Lire les rapports dans `./reports/`
-- Valider les corrections
-
-**Phase 3 : Application**
-```bash
-python code_fixer_v2.py --auto
-```
-
-**Phase 4 : Documentation**
-```bash
-python readme_editor_v2.py /chemin/projet
+ls -la ~/.claude/skills/
+# Doit afficher :
+# accessibility-checker/
+# code-quality-analyzer/
+# visual-consistency-checker/
 ```
 
 ---
 
-## 🧠 Apprentissage continu
+## 🚀 Utilisation dans Claude Code
 
-Tous les agents V2 utilisent un système d'apprentissage :
-
-**Scan 1-2** : Observation, mémorisation  
-**Scan 3-5** : Calcul des patterns standards  
-**Scan 6-10** : Corrections partiellement autonomes  
-**Scan 10+** : Expert, haute autonomie (80%+)  
-
-La mémoire est **permanente** et **spécifique par projet**.
-
----
-
-## 🎯 Règles communes
-
-### Ce que les agents PEUVENT faire automatiquement
-- ✅ Modifications CSS/Tailwind (visuelles)
-- ✅ Suppression d'emojis
-- ✅ Nettoyage imports/console.log
-- ✅ Corrections syntaxiques simples
-
-### Ce que les agents NE PEUVENT PAS faire automatiquement
-- ❌ Modifier la logique métier
-- ❌ Ajouter/supprimer des fonctions
-- ❌ Restructurer le code
-- ❌ Modifier les types TypeScript (sauf simple)
-
-**Toute modification de logique nécessite validation humaine.**
-
----
-
-## 📁 Structure du repo
+### Demander à Claude d'utiliser un skill
 
 ```
-claude-agents/
-├── button-validator-v2-learning/
-│   ├── SKILL.md
-│   ├── button_validator_v2.py (800+ lignes)
-│   ├── README.md
-│   └── brain/ (mémoire, créée automatiquement)
-│
-├── props-form-validator-v2/
-│   ├── SKILL.md
-│   └── props_form_validator_v2.py (à venir)
-│
-├── dead-code-cleaner-v2/
-│   ├── SKILL.md
-│   └── dead_code_cleaner_v2.py (à venir)
-│
-├── code-fixer-v2/
-│   ├── SKILL.md
-│   └── code_fixer_v2.py (à venir)
-│
-└── README.md (ce fichier)
+"Utilise le skill code-quality-analyzer pour analyser src/components/Dashboard.tsx"
+
+"Utilise le skill accessibility-checker pour vérifier l'accessibilité de LoginPage.tsx"
+
+"Utilise le skill visual-consistency-checker pour comparer HomePage.tsx et SettingsPage.tsx"
+```
+
+### Exemple de rapport généré
+
+```
+Issue #1: Unused State Variable - editingUser
+File: src/components/UserList.tsx
+Line: 23
+
+Code:
+const [editingUser, setEditingUser] = useState<string | null>(null)
+// ...
+<button onClick={() => setEditingUser(user.id)}>Edit</button>
+
+Problem: editingUser is set but never read anywhere in the component
+
+How I verified:
+- Searched entire file for "editingUser"
+- Found declaration (line 23) and setter (line 156)
+- No conditional rendering or modal based on editingUser
+- No other usage found
+
+User Impact: Edit button appears clickable but does nothing visible
+
+Fix: Either implement edit modal or disable button
+
+Effort: 2-4 hours (implement) or 5 minutes (disable)
 ```
 
 ---
 
-## 🔒 Sécurité
+## 📖 Format des Skills
 
-### Backup automatique
-Tous les agents créent des backups avant modifications :
+Chaque skill suit le **format officiel Anthropic** :
+
 ```
-.agent-backup/
-└── {timestamp}/
-    └── fichiers_modifiés/
+skills/
+├── code-quality-analyzer/
+│   └── SKILL.md
+├── accessibility-checker/
+│   └── SKILL.md
+└── visual-consistency-checker/
+    └── SKILL.md
 ```
 
-### Rollback
-```bash
-python code_fixer_v2.py --rollback {timestamp}
-```
+### Structure d'un SKILL.md
 
-### Logs complets
-Tous les agents génèrent des logs détaillés :
-```
-reports/
-├── button-analysis-20251031-143022.md
-├── props-analysis-20251031-153045.md
-├── dead-code-report-20251031-163010.md
-└── fixes-applied-20251031-173025.md
+```markdown
+---
+name: mon-skill
+description: Description concise du skill
+---
+
+# Mon Skill
+
+Instructions détaillées pour Claude...
+
+## Core Principle
+**NEVER HALLUCINATE.** Only report verified issues.
+
+## Analysis Checklist
+### 1. Premier point à vérifier
+- Étapes de vérification...
+
+## How to Verify Issues
+1. Read actual code
+2. Search entire file
+3. Check line numbers
+4. Extract code snippet
+5. Explain impact
+
+## Report Format
+[Format structuré du rapport]
+
+## What NOT to Report
+[Choses à éviter]
 ```
 
 ---
 
-## 📖 Documentation
+## ✅ Différence avec les anciens "agents"
 
-Chaque agent a sa propre documentation complète :
-- **SKILL.md** : Documentation technique de l'agent
-- **README.md** : Guide d'utilisation avec exemples
-- **Code Python** : Commenté et documenté
-
----
-
-## 🛠️ Prérequis
-
-- **Python** : 3.7+
-- **Projet** : package.json présent
-- **Git** : Optionnel (pour commits automatiques)
-
-**Aucune dépendance externe** (bibliothèque standard Python uniquement)
+| Aspect | ❌ Anciens agents Python | ✅ Nouveaux Skills Anthropic |
+|--------|-------------------------|------------------------------|
+| Format | Scripts Python custom | Format officiel Anthropic (SKILL.md) |
+| Hallucinations | Inventaient des problèmes | NEVER HALLUCINATE - seulement du vérifié |
+| Preuves | Pas de preuve | Numéros de ligne + code exact + vérification |
+| Documentation | Dispersée | Instructions claires dans SKILL.md |
+| Maintenance | Difficile | Format standard, facile à maintenir |
+| Installation | Dépendances Python | Simple copie de fichiers markdown |
 
 ---
 
-## 📈 Roadmap
+## 🔧 Développement
 
-### ✅ Agents développés et fonctionnels (v2.0.0)
-- [x] Button Validator V2 ✅ COMPLET
-- [x] Props & Form Validator V2 ✅ COMPLET
-- [x] Dead Code Cleaner V2 ✅ COMPLET
-- [x] Code Fixer V2 ✅ COMPLET
-- [x] Component Consistency Checker V2 ✅ COMPLET
-- [x] Agent Coordinator V2 ✅ COMPLET
-- [x] README Editor V2 ✅ COMPLET
+### Créer un nouveau skill
 
-### Agents planifiés
-- [ ] Route Analyzer V2
-- [ ] TypeScript Validator V2
-- [ ] Test Generator V2
-- [ ] JSDoc Generator V2
+1. **Créer la structure**
+   ```bash
+   mkdir -p skills/mon-nouveau-skill
+   ```
+
+2. **Créer le SKILL.md**
+   ```markdown
+   ---
+   name: mon-nouveau-skill
+   description: Description courte (utilisée par Claude pour choisir)
+   ---
+
+   # Mon Nouveau Skill
+
+   [Instructions détaillées]
+   ```
+
+3. **Tester localement**
+   ```bash
+   cp -r skills/mon-nouveau-skill ~/.claude/skills/
+   ```
+
+4. **Demander à Claude**
+   ```
+   "Utilise le skill mon-nouveau-skill pour analyser mon code"
+   ```
+
+---
+
+## 📚 Ressources
+
+- **[Documentation officielle Anthropic Skills](https://github.com/anthropics/skills)**
+- **[Template officiel SKILL.md](https://github.com/anthropics/skills/blob/main/template-skill/SKILL.md)**
+- **[Exemples de skills Anthropic](https://github.com/anthropics/skills)** (webapp-testing, artifacts-builder, mcp-server, etc.)
 
 ---
 
 ## 🤝 Contribution
 
-Ces agents sont conçus pour s'adapter à **ton projet spécifique**.
+Les skills sont actuellement sur la branche : **`claude/repo-access-setup-011CUouyieGWSxu6Dw8rT8mG`**
 
-Ils apprennent de :
-- Tes patterns CSS/Tailwind
-- Tes conventions de nommage
-- Tes préférences de structure
-- Tes décisions de validation
-
-Plus tu les utilises, plus ils deviennent précis et autonomes.
-
----
-
-## 📝 Notes importantes
-
-### Emojis
-**RÈGLE ABSOLUE** : Aucun emoji dans le code UI de l'application.  
-Les agents le détectent comme problème **CRITIQUE** et suppriment automatiquement.
-
-### Apprentissage
-Les 3-5 premiers scans sont pour l'observation.  
-L'autonomie réelle commence après 5+ scans.
-
-### Mémoire
-La mémoire est stockée dans `brain/projects/{hash}/`.  
-Ne pas supprimer sauf pour reset volontaire.
+Pour contribuer :
+1. Fork ce repository
+2. Créer une branche feature
+3. Ajouter/améliorer un skill
+4. Tester avec Claude Code
+5. Créer une Pull Request
 
 ---
 
-## 📜 Licence
+## 📝 Licence
 
-Créé pour analyse et maintenance automatisée de projets web.
-
----
-
-**Version** : 2.0.0
-**Dernière mise à jour** : 2025-11-01
-**Agents fonctionnels** : 7/7 ✅
-**Agents documentés** : 7/7 ✅
-**TOUS LES AGENTS SONT MAINTENANT COMPLETS ET OPÉRATIONNELS !**
+MIT
 
 ---
 
-### 🎨 Component Consistency Checker V2
-**Status** : Complet et fonctionnel ✅
-**Fonction** : Vérification cohérence visuelle et structurelle entre composants similaires
-**Code** : consistency_checker_v2.py (710+ lignes)  
+## 💡 Support
 
-**Ce qu'il fait** :
-- Groupe composants similaires (Cards, Forms, Modals, Lists)
-- Analyse patterns visuels (couleurs, espacements, typography)
-- Détecte incohérences structurelles
-- Vérifie conventions de props
-- États visuels (hover, focus, disabled, active)
-- Accessibilité cohérente entre composants
+Questions ? Problèmes ? Ouvrez une issue sur GitHub !
 
----
-
-### 🎼 Agent Coordinator V2
-**Status** : Complet et fonctionnel ✅
-**Fonction** : Chef d'orchestre pour coordonner tous les agents
-**Code** : agent_coordinator.py (623 lignes)  
-
-**Ce qu'il fait** :
-- Lance tous les agents en parallèle
-- Compile les rapports en un rapport maître
-- Priorise les corrections intelligemment
-- Demande validation utilisateur
-- Coordonne l'exécution des corrections
-- Vérifie les résultats post-exécution
-- Génère rapport final complet
-
-**Workflow** : Analyse → Compilation → Priorisation → Validation → Exécution → Vérification
-
----
-
-### 📝 README Editor V2
-**Status** : Complet et fonctionnel ✅
-**Fonction** : Génération et maintenance automatique de documentation
-**Code** : readme_editor_v2.py (590+ lignes)  
-
-**Ce qu'il fait** :
-- Génère README.md principal du projet
-- Crée README.md par dossier (components, hooks, utils)
-- Détecte changements (dépendances, composants, features)
-- Met à jour automatiquement
-- Génère diagrammes d'architecture (Mermaid)
-- Documentation des composants individuels
-- Sections API, Tests, Scripts auto-générées
-
-
+**Important :** Ces skills fonctionnent avec Claude Code et suivent le format officiel Anthropic. Ils ne sont pas des scripts Python autonomes mais des instructions markdown que Claude lit et suit rigoureusement.
