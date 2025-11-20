@@ -1,6 +1,6 @@
 # Skills Anthropic pour Claude Code
 
-Collection de 3 skills officiels au format Anthropic pour l'analyse de code React/TypeScript.
+Collection de 4 skills officiels au format Anthropic pour l'analyse de code React/TypeScript.
 
 ## 🎯 Skills Disponibles
 
@@ -47,6 +47,23 @@ Compare :
 - Éléments de formulaire
 - Styles de modals
 
+### 4. refactoring-analyzer 🔧
+**Analyse de refactoring et maintenabilité du code**
+
+Identifie :
+- Code dupliqué (3+ occurrences)
+- Fonctions/composants trop longs
+- Complexité cyclomatique élevée
+- Composants avec trop de responsabilités
+- Opportunités d'extraction de hooks personnalisés
+- Opportunités d'extraction de composants
+- Props drilling (passage de props sur 3+ niveaux)
+- Nombres/chaînes magiques
+- Listes de paramètres longues
+- Logique conditionnelle complexe
+- Code mort (dead code)
+- Patterns inconsistants
+
 ## 📥 Installation
 
 ### Méthode 1 : Script automatique (recommandé)
@@ -78,6 +95,7 @@ ls -la ~/.claude/skills/
 # Devrait afficher :
 # accessibility-checker/
 # code-quality-analyzer/
+# refactoring-analyzer/
 # visual-consistency-checker/
 ```
 
@@ -93,6 +111,8 @@ Demandez à Claude d'utiliser un skill :
 "Utilise le skill accessibility-checker pour vérifier l'accessibilité de cette page"
 
 "Utilise le skill visual-consistency-checker pour comparer les styles entre HomePage.tsx et SettingsPage.tsx"
+
+"Utilise le skill refactoring-analyzer pour identifier les opportunités de refactoring dans src/components/Dashboard.tsx"
 ```
 
 ### Format des rapports

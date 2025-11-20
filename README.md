@@ -1,6 +1,6 @@
 # Claude Code Skills - Analyse de Code React/TypeScript
 
-Collection de 3 skills officiels au format Anthropic pour l'analyse rigoureuse de code React/TypeScript.
+Collection de 4 skills officiels au format Anthropic pour l'analyse rigoureuse de code React/TypeScript.
 
 > **Principe fondamental :** Ces skills suivent la règle "NEVER HALLUCINATE" - ils ne rapportent que des problèmes réellement vérifiés dans le code, jamais d'hypothèses.
 
@@ -61,6 +61,27 @@ Compare les styles réels entre plusieurs fichiers :
 
 ---
 
+### 4. 🔧 refactoring-analyzer
+**Analyse de refactoring et maintenabilité du code**
+
+Identifie les opportunités de refactoring pour améliorer la maintenabilité :
+- 🔄 Code dupliqué (3+ occurrences)
+- 📏 Fonctions/composants trop longs (>50/300 lignes)
+- 🔀 Complexité cyclomatique élevée (>5 branches)
+- ⚖️ Composants avec trop de responsabilités (SRP violation)
+- 🪝 Opportunités d'extraction de hooks personnalisés
+- 🧩 Opportunités d'extraction de composants
+- 📦 Props drilling (3+ niveaux)
+- 🔢 Nombres/chaînes magiques
+- 📋 Listes de paramètres longues (5+ params)
+- 🤔 Logique conditionnelle complexe
+- 💀 Code mort (dead code)
+- ⚠️ Patterns inconsistants entre fichiers
+
+**Méthodologie :** Mesure objectivement la complexité (lignes, branches, occurrences), fournit métriques précises avec numéros de ligne, et propose des étapes concrètes de refactoring avec estimation de temps et évaluation du risque.
+
+---
+
 ## 📥 Installation Rapide
 
 ### Sur votre ordinateur local
@@ -108,6 +129,8 @@ ls -la ~/.claude/skills/
 "Utilise le skill accessibility-checker pour vérifier l'accessibilité de LoginPage.tsx"
 
 "Utilise le skill visual-consistency-checker pour comparer HomePage.tsx et SettingsPage.tsx"
+
+"Utilise le skill refactoring-analyzer pour identifier les opportunités de refactoring dans src/"
 ```
 
 ### Exemple de rapport généré
