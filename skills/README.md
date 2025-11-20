@@ -1,10 +1,12 @@
 # Skills Anthropic pour Claude Code
 
-Collection de 3 skills officiels au format Anthropic pour l'analyse de code React/TypeScript.
+Collection de **6 skills** au format Anthropic officiel pour l'analyse et l'amélioration de projets JavaScript/TypeScript.
 
 ## 🎯 Skills Disponibles
 
-### 1. code-quality-analyzer 🔍
+### Skills d'Analyse de Code (React/TypeScript)
+
+#### 1. code-quality-analyzer 🔍
 **Analyse de qualité de code React/TypeScript**
 
 Détecte :
@@ -17,7 +19,7 @@ Détecte :
 - États vides non gérés
 - Problèmes d'accessibilité basiques
 
-### 2. accessibility-checker ♿
+#### 2. accessibility-checker ♿
 **Analyse d'accessibilité conforme WCAG**
 
 Détecte :
@@ -32,7 +34,7 @@ Détecte :
 - Éléments disabled sans explication
 - Accessibilité des modals
 
-### 3. visual-consistency-checker 🎨
+#### 3. visual-consistency-checker 🎨
 **Détection d'incohérences visuelles**
 
 Compare :
@@ -46,6 +48,45 @@ Compare :
 - Tailles d'icônes
 - Éléments de formulaire
 - Styles de modals
+
+### Skills d'Optimisation et Maintenance
+
+#### 4. dead-code-detector 🗑️
+**Détection de code mort avec Knip**
+
+Trouve :
+- Fichiers jamais importés
+- Exports non utilisés
+- Dépendances npm inutilisées
+- devDependencies non utilisées
+- Exports dupliqués
+- Dépendances circulaires
+
+**Outils** : Knip (gratuit, open source)
+
+#### 5. auto-documenter 📚
+**Génération automatique de documentation**
+
+Génère :
+- Documentation API TypeScript (TypeDoc)
+- Documentation props React
+- Rapport des fonctions sans JSDoc
+- Analyse de qualité de documentation
+- Templates JSDoc
+
+**Outils** : TypeDoc, react-docgen-typescript (gratuits, open source)
+
+#### 6. test-coverage-analyzer 🧪
+**Analyse de couverture de tests**
+
+Analyse :
+- Couverture globale (statements, branches, functions, lines)
+- Fichiers sans tests
+- Fonctions critiques non testées
+- Lacunes de couverture par priorité
+- Templates de tests recommandés
+
+**Outils** : Vitest, Jest (gratuits, open source)
 
 ## 📥 Installation
 
@@ -77,7 +118,10 @@ cp -r skills/* ~/.claude/skills/
 ls -la ~/.claude/skills/
 # Devrait afficher :
 # accessibility-checker/
+# auto-documenter/
 # code-quality-analyzer/
+# dead-code-detector/
+# test-coverage-analyzer/
 # visual-consistency-checker/
 ```
 
@@ -87,12 +131,22 @@ ls -la ~/.claude/skills/
 
 Demandez à Claude d'utiliser un skill :
 
+**Analyse de Code**
 ```
 "Utilise le skill code-quality-analyzer pour analyser src/components/MyComponent.tsx"
 
 "Utilise le skill accessibility-checker pour vérifier l'accessibilité de cette page"
 
 "Utilise le skill visual-consistency-checker pour comparer les styles entre HomePage.tsx et SettingsPage.tsx"
+```
+
+**Optimisation et Maintenance**
+```
+"Utilise le skill dead-code-detector pour trouver le code inutilisé dans src/"
+
+"Utilise le skill auto-documenter pour générer la documentation du projet"
+
+"Utilise le skill test-coverage-analyzer pour analyser la couverture de tests"
 ```
 
 ### Format des rapports
